@@ -26,22 +26,18 @@ import play.api.Configuration
 
 class AuthorisationControllerSpec extends AnyWordSpec with Matchers {
 
-  private def createController(supportedTypes: String): AuthorisationController = {
-    val config = Configuration("auth.supportedTypes" -> supportedTypes)
-    new AuthorisationController(Helpers.stubControllerComponents(), config)
-  }
+  val config = Configuration("auth.supportedTypes" -> "UKIM")
+  val controller = new AuthorisationController(Helpers.stubControllerComponents(), config);
 
   "AuthorisationController" should {
 
     "return NoContent (204) for supported auth type UKIM" in {
-      val controller = createController("UKIM,TYPE1,TYPE2")
       val result = controller.authorise("UKIM")(FakeRequest(GET, "/authorisations/UKIM"))
 
       status(result) shouldBe Status.NO_CONTENT
     }
 
     "return BadRequest (400) for unsupported auth type" in {
-      val controller = createController("UKIM,TYPE1,TYPE2")
       val result = controller.authorise("UNSUPPORTED")(FakeRequest(GET, "/authorisations/UNSUPPORTED"))
 
       status(result) shouldBe Status.BAD_REQUEST
