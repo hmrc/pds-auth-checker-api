@@ -1,7 +1,10 @@
-
 # pds-auth-checker-api
 
-This is a placeholder README.md for a new repository
+This repository contains the necessary code to display user journey for PDS AUTH CHECKER API
+
+### Running the tests
+
+    sbt test
 
 ### License
 
