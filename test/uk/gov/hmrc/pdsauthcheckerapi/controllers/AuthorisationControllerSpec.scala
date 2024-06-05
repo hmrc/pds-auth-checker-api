@@ -16,35 +16,62 @@
 
 package uk.gov.hmrc.pdsauthcheckerapi.controllers
 
+import org.mockito.ArgumentMatchers
+import org.mockito.ArgumentMatchers.any
+import org.mockito.Mockito.when
+import org.scalatest.concurrent.ScalaFutures
+import org.scalatest.matchers.must.Matchers.convertToAnyMustWrapper
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
-import play.api.http.Status
-import play.api.libs.json.Json
+import org.scalatestplus.mockito.MockitoSugar.mock
+import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks.forAll
 import play.api.test.Helpers._
 import play.api.test.{FakeRequest, Helpers}
 import play.api.Configuration
+import play.api.libs.json.Json
+import play.api.mvc.Result
+import uk.gov.hmrc.http.HeaderCarrier
+import uk.gov.hmrc.pdsauthcheckerapi.base.TestCommonGenerators
+import uk.gov.hmrc.pdsauthcheckerapi.models.PdsAuthResponse
+import uk.gov.hmrc.pdsauthcheckerapi.services.PdsService
 
-class AuthorisationControllerSpec extends AnyWordSpec with Matchers {
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
+
+class AuthorisationControllerSpec extends AnyWordSpec with Matchers with TestCommonGenerators with ScalaFutures {
 
   val config = Configuration("auth.supportedTypes" -> "UKIM")
-  val controller = new AuthorisationController(Helpers.stubControllerComponents(), config);
+  val mockPdsService = mock[PdsService]
+  val controller = new AuthorisationController(Helpers.stubControllerComponents(), config, mockPdsService);
 
   "AuthorisationController" should {
 
-    "return NoContent (204) for supported auth type UKIM" in {
-      val result = controller.authorise("UKIM")(FakeRequest(GET, "/authorisations/UKIM"))
+    "return 200 OK and return service layer response for supported auth type UKIM" in {
+      val authRequestGen = authorisationRequestGen
+      val responseGen = authRequestGen.flatMap(authorisationResponseGen)
 
-      status(result) shouldBe Status.NO_CONTENT
+      forAll(authRequestGen, responseGen) { (authRequest, serviceResponse) =>
+        when(mockPdsService
+          .getValidatedCustoms(ArgumentMatchers.eq(authRequest))(any[HeaderCarrier]))
+          .thenReturn(Future.successful(serviceResponse))
+        val request = FakeRequest().withBody(authRequest)
+        val result: Future[Result] = controller.authorise(request)
+        status(result) mustBe OK
+        contentAsJson(result).as[PdsAuthResponse] shouldBe serviceResponse
+      }
     }
 
-    "return BadRequest (400) for unsupported auth type" in {
-      val result = controller.authorise("UNSUPPORTED")(FakeRequest(GET, "/authorisations/UNSUPPORTED"))
-
-      status(result) shouldBe Status.BAD_REQUEST
-      contentAsJson(result) shouldBe Json.obj(
+    "return 400 BAD_REQUEST error message for unsupported auth type" in {
+      val authRequest = authorisationRequestGen.sample.get.copy(authType = "UNSUPPORTED AUTH TYPE")
+      val invalidAuthTypeResponse = Json.obj(
         "code" -> "INVALID_AUTHTYPE",
         "message" -> "Auth Type provided is not supported"
       )
+
+      val request = FakeRequest().withBody(authRequest)
+      val result: Future[Result] = controller.authorise(request)
+      status(result) mustBe BAD_REQUEST
+      contentAsJson(result) shouldBe invalidAuthTypeResponse
     }
   }
 }

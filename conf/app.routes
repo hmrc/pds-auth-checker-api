@@ -1,1 +1,3 @@
 # microservice specific routes
+
+POST        /validatecustomsauth           uk.gov.hmrc.pdsauthcheckerapi.controllers.AuthorisationController.authorise

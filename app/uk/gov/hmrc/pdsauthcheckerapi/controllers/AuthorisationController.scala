@@ -20,10 +20,15 @@ import javax.inject._
 import play.api.Configuration
 import play.api.libs.json.Json
 import play.api.mvc._
+import uk.gov.hmrc.pdsauthcheckerapi.models
+import uk.gov.hmrc.pdsauthcheckerapi.models.PdsAuthRequest
+import uk.gov.hmrc.pdsauthcheckerapi.services.PdsService
 import uk.gov.hmrc.play.bootstrap.backend.controller.BackendController
 
+import scala.concurrent.{ExecutionContext, Future}
+
 @Singleton
-class AuthorisationController @Inject()(cc: ControllerComponents, config: Configuration) extends BackendController(cc)  {
+class AuthorisationController @Inject()(cc: ControllerComponents, config: Configuration, pdsService: PdsService)(implicit ec: ExecutionContext) extends BackendController(cc)  {
 
   private val supportedAuthTypes: Set[String] = config.get[String]("auth.supportedTypes").split(",").map(_.trim).toSet
 
@@ -32,13 +37,13 @@ class AuthorisationController @Inject()(cc: ControllerComponents, config: Config
     "message" -> "Auth Type provided is not supported"
   ))
 
-  def authorise(authType: String): Action[AnyContent] = Action { _ =>
-    if (!supportedAuthTypes.contains(authType)) {
-      InvalidAuthTypeResponse
+  def authorise: Action[PdsAuthRequest] = Action(parse.json[models.PdsAuthRequest]).async { implicit request =>
+    val pdsAuthRequestBody = request.body
+    if (!supportedAuthTypes.contains(pdsAuthRequestBody.authType)) {
+      Future.successful(InvalidAuthTypeResponse)
     } else {
-      authType match {
-        case "UKIM" => NoContent
-        case _ => InvalidAuthTypeResponse
+      pdsService.getValidatedCustoms(pdsAuthRequestBody).map { pdsAuthResponse =>
+        Ok(Json.toJson(pdsAuthResponse))
       }
     }
   }
