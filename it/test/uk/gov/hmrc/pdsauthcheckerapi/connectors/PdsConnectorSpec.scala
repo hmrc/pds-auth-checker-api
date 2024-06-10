@@ -44,8 +44,8 @@ class PdsConnectorSpec
 
   private val configuration = Configuration(
     "appName" -> "pds-auth-checker-api",
-    "microservice.services.eis-stub.host" -> wireMockHost,
-    "microservice.services.eis-stub.port" -> wireMockPort
+    "microservice.services.eis.host" -> wireMockHost,
+    "microservice.services.eis.port" -> wireMockPort
   )
 
   private val mockUKIMSServicesConfig = new UKIMSServicesConfig(configuration)

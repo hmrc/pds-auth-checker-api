@@ -29,5 +29,5 @@ class AppConfig @Inject() (
 
   val appName: String = config.get[String]("appName")
 
-  val pdsStubAuthCheckerUrl = Url.parse(servicesConfig.baseUrl("eis-stub"))
+  val eisUrl = Url.parse(servicesConfig.baseUrl("eis"))
 }

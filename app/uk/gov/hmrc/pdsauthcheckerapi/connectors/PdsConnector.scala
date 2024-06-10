@@ -34,7 +34,7 @@ class PdsConnector @Inject() (client: HttpClientV2, appConfig: AppConfig)(
     implicit ec: ExecutionContext
 ) extends Logging {
   private val pdsEndpoint =
-    appConfig.pdsStubAuthCheckerUrl.addPathParts("validatecustomsauth")
+    appConfig.eisUrl.addPathParts("validatecustomsauth")
 
   def validateCustoms(
       pdsAuthRequest: PdsAuthRequest
