@@ -16,18 +16,12 @@
 
 package uk.gov.hmrc.pdsauthcheckerapi.config
 
-import javax.inject.{Inject, Singleton}
+import com.google.inject.Inject
 import play.api.Configuration
-import uk.gov.hmrc.pdsauthcheckerapi.config.UKIMSServicesConfig
-import io.lemonlabs.uri.Url
+import uk.gov.hmrc.play.bootstrap.config.ServicesConfig
 
-@Singleton
-class AppConfig @Inject() (
-    config: Configuration,
-    servicesConfig: UKIMSServicesConfig
-) {
+class UKIMSServicesConfig @Inject() (config: Configuration) extends ServicesConfig(config) {
 
-  val appName: String = config.get[String]("appName")
+  override def config(serviceName: String): Configuration = super.config(serviceName)
 
-  val eisUrl = Url.parse(servicesConfig.baseUrl("eis"))
 }

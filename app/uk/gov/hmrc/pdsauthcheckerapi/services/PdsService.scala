@@ -14,20 +14,16 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.pdsauthcheckerapi.config
+package uk.gov.hmrc.pdsauthcheckerapi.services
 
-import javax.inject.{Inject, Singleton}
-import play.api.Configuration
-import uk.gov.hmrc.pdsauthcheckerapi.config.UKIMSServicesConfig
-import io.lemonlabs.uri.Url
+import uk.gov.hmrc.http.HeaderCarrier
+import uk.gov.hmrc.pdsauthcheckerapi.connectors.PdsConnector
+import uk.gov.hmrc.pdsauthcheckerapi.models.{PdsAuthRequest, PdsAuthResponse}
+import javax.inject.Inject
+import scala.concurrent.Future
 
-@Singleton
-class AppConfig @Inject() (
-    config: Configuration,
-    servicesConfig: UKIMSServicesConfig
-) {
+class PdsService @Inject() (pdsConnector: PdsConnector){
 
-  val appName: String = config.get[String]("appName")
-
-  val eisUrl = Url.parse(servicesConfig.baseUrl("eis"))
+  def getValidatedCustoms(pdsAuthRequest: PdsAuthRequest)(implicit hc: HeaderCarrier): Future[PdsAuthResponse] =
+    pdsConnector.validateCustoms(pdsAuthRequest)
 }

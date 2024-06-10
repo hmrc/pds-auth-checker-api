@@ -14,20 +14,17 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.pdsauthcheckerapi.config
+package uk.gov.hmrc.pdsauthcheckerapi.models
 
-import javax.inject.{Inject, Singleton}
-import play.api.Configuration
-import uk.gov.hmrc.pdsauthcheckerapi.config.UKIMSServicesConfig
-import io.lemonlabs.uri.Url
+import play.api.libs.json
 
-@Singleton
-class AppConfig @Inject() (
-    config: Configuration,
-    servicesConfig: UKIMSServicesConfig
-) {
+import scala.util.matching.Regex
 
-  val appName: String = config.get[String]("appName")
+case class Eori(value: String) extends AnyVal
 
-  val eisUrl = Url.parse(servicesConfig.baseUrl("eis"))
+object Eori {
+  val Regex: Regex = "^(GB|XI)\\d{12}$".r
+
+  implicit val reads: json.Reads[Eori] = json.Reads.pattern(Regex, s"EORI format invalid").map(Eori.apply)
+  implicit val writes: json.Writes[Eori] = implicitly[json.Writes[String]].contramap(_.value)
 }

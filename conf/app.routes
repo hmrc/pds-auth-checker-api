@@ -1,1 +1,3 @@
 # microservice specific routes
+
+POST        /authorisations           uk.gov.hmrc.pdsauthcheckerapi.controllers.AuthorisationController.authorise
