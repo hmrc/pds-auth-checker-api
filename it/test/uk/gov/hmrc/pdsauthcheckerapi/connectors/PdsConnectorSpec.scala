@@ -24,36 +24,47 @@ import play.api.Configuration
 import uk.gov.hmrc.http.HeaderCarrier
 import uk.gov.hmrc.http.test.{HttpClientV2Support, WireMockSupport}
 import uk.gov.hmrc.pdsauthcheckerapi.base.TestCommonGenerators
-import uk.gov.hmrc.pdsauthcheckerapi.models.{Eori, PdsAuthResponse, PdsAuthResponseResult}
-import uk.gov.hmrc.play.bootstrap.config.ServicesConfig
-
+import uk.gov.hmrc.pdsauthcheckerapi.config.{AppConfig, UKIMSServicesConfig}
+import uk.gov.hmrc.pdsauthcheckerapi.models.{
+  Eori,
+  PdsAuthResponse,
+  PdsAuthResponseResult
+}
 import java.time.LocalDate
 import scala.concurrent.ExecutionContext.Implicits.global
 
+class PdsConnectorSpec
+    extends AnyWordSpec
+    with Matchers
+    with ScalaFutures
+    with HttpClientV2Support
+    with TestCommonGenerators
+    with IntegrationPatience
+    with WireMockSupport {
 
-class PdsConnectorSpec extends AnyWordSpec
-  with Matchers
-  with ScalaFutures
-  with HttpClientV2Support
-  with TestCommonGenerators
-  with IntegrationPatience
-  with WireMockSupport {
+  private val configuration = Configuration(
+    "appName" -> "pds-auth-checker-api",
+    "microservice.services.pds.host" -> wireMockHost,
+    "microservice.services.pds.port" -> wireMockPort
+  )
 
-  private val wiremockServerConfig = new ServicesConfig(
-    Configuration(
-      "microservice.services.pds.host" -> wireMockHost,
-      "microservice.services.pds.port" -> wireMockPort
-    )
+  private val mockUKIMSServicesConfig = new UKIMSServicesConfig(configuration)
+
+  private val wiremockServerConfig = new AppConfig(
+    configuration,
+    mockUKIMSServicesConfig
   )
 
   private val pdsPath = "/validatecustomsauth"
 
-  private val pdsConnector = new PdsConnector(httpClientV2, wiremockServerConfig)
+  private val pdsConnector =
+    new PdsConnector(httpClientV2, wiremockServerConfig)
 
   "PdsConnector" when {
     "an authorisation request is made" should {
       "return a successful response with body for a valid response to PDS" in {
-        givenPdsReturns(200,
+        givenPdsReturns(
+          200,
           pdsPath,
           s"""{
              |  "processingDate": "2021-01-01",
@@ -73,7 +84,9 @@ class PdsConnectorSpec extends AnyWordSpec
              |}""".stripMargin
         )
 
-        val response = pdsConnector.validateCustoms(authorisationRequestGen.sample.get)(HeaderCarrier()).futureValue
+        val response = pdsConnector
+          .validateCustoms(authorisationRequestGen.sample.get)(HeaderCarrier())
+          .futureValue
 
         response shouldBe PdsAuthResponse(
           LocalDate.of(2021, 1, 1),

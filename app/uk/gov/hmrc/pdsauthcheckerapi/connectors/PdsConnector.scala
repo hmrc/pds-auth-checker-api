@@ -16,22 +16,43 @@
 
 package uk.gov.hmrc.pdsauthcheckerapi.connectors
 
+import play.api.Logging
+import play.api.http.Status.OK
+
 import javax.inject.{Inject, Singleton}
-import uk.gov.hmrc.http.HeaderCarrier
+import uk.gov.hmrc.http.{HeaderCarrier, HttpResponse, StringContextOps}
 import uk.gov.hmrc.http.HttpReads.Implicits._
 
 import scala.concurrent.{ExecutionContext, Future}
 import play.api.libs.json._
 import uk.gov.hmrc.http.client.HttpClientV2
+import uk.gov.hmrc.pdsauthcheckerapi.config.AppConfig
 import uk.gov.hmrc.pdsauthcheckerapi.models.{PdsAuthRequest, PdsAuthResponse}
-import uk.gov.hmrc.play.bootstrap.config.ServicesConfig
 
-import java.net.URL
 @Singleton
-class PdsConnector @Inject() (client: HttpClientV2, servicesConfig: ServicesConfig)(implicit ec: ExecutionContext){
-  private val pdsEndpoint = new URL(servicesConfig.baseUrl("pds") + "/validatecustomsauth")
+class PdsConnector @Inject() (client: HttpClientV2, appConfig: AppConfig)(
+    implicit ec: ExecutionContext
+) extends Logging {
+  private val pdsEndpoint =
+    appConfig.pdsStubAuthCheckerUrl.addPathParts("validatecustomsauth")
 
-  def validateCustoms(pdsAuthRequest: PdsAuthRequest)(implicit hc: HeaderCarrier): Future[PdsAuthResponse] =
-    client.post(pdsEndpoint).withBody(Json.toJson(pdsAuthRequest)).execute[PdsAuthResponse]
+  def validateCustoms(
+      pdsAuthRequest: PdsAuthRequest
+  )(implicit hc: HeaderCarrier): Future[PdsAuthResponse] =
+    client
+      .post(url"$pdsEndpoint")
+      .withBody(Json.toJson(pdsAuthRequest))
+      .execute[HttpResponse]
+      .flatMap { response =>
+        response.status match {
+          case OK =>
+            Future.successful(response.json.as[PdsAuthResponse])
+          case _ =>
+            logger.error(
+              s"Did not receive OK from PDS - instead got ${response.status} and ${response.body}"
+            )
+            Future.failed(new RuntimeException(s"Unexpected status: ${response.status}"))
+        }
+      }
 
 }
