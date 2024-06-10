@@ -22,9 +22,12 @@ import uk.gov.hmrc.pdsauthcheckerapi.config.UKIMSServicesConfig
 import io.lemonlabs.uri.Url
 
 @Singleton
-class AppConfig @Inject()(config: Configuration, servicesConfig: UKIMSServicesConfig) {
+class AppConfig @Inject() (
+    config: Configuration,
+    servicesConfig: UKIMSServicesConfig
+) {
 
   val appName: String = config.get[String]("appName")
 
-  val pdsStubAuthCheckerUrl = Url.parse(servicesConfig.baseUrl("pds"))
+  val pdsStubAuthCheckerUrl = Url.parse(servicesConfig.baseUrl("eis-stub"))
 }
