@@ -29,20 +29,24 @@ import play.api.test.Helpers._
 import play.api.test.{FakeRequest, Helpers}
 import play.api.Configuration
 import play.api.libs.json.Json
-import play.api.mvc.Result
+import play.api.mvc.{BodyParsers, Result}
 import uk.gov.hmrc.http.HeaderCarrier
 import uk.gov.hmrc.pdsauthcheckerapi.base.TestCommonGenerators
-import uk.gov.hmrc.pdsauthcheckerapi.models.PdsAuthResponse
+import uk.gov.hmrc.pdsauthcheckerapi.models.{PdsAuthRequest, PdsAuthResponse}
 import uk.gov.hmrc.pdsauthcheckerapi.services.PdsService
+import uk.gov.hmrc.pdsauthcheckerapi.actions.AuthTypeAction
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
 class AuthorisationControllerSpec extends AnyWordSpec with Matchers with TestCommonGenerators with ScalaFutures {
 
-  val config = Configuration("auth.supportedTypes" -> "UKIM")
+  val config = Configuration("auth.supportedTypes" -> Seq("UKIM"))
   val mockPdsService = mock[PdsService]
-  val controller = new AuthorisationController(Helpers.stubControllerComponents(), config, mockPdsService);
+  val supportedAuthTypes = Set("UKIM")
+  val bodyParsers = new BodyParsers.Default // Properly instantiate BodyParsers.Default
+  val authTypeAction = new AuthTypeAction(bodyParsers, supportedAuthTypes)
+  val controller = new AuthorisationController(Helpers.stubControllerComponents(), mockPdsService, authTypeAction)
 
   "AuthorisationController" should {
 
@@ -54,8 +58,9 @@ class AuthorisationControllerSpec extends AnyWordSpec with Matchers with TestCom
         when(mockPdsService
           .getValidatedCustoms(ArgumentMatchers.eq(authRequest))(any[HeaderCarrier]))
           .thenReturn(Future.successful(serviceResponse))
-        val request = FakeRequest().withBody(authRequest)
-        val result: Future[Result] = controller.authorise(request)
+
+        val request = FakeRequest().withBody(Json.toJson(authRequest)).withHeaders("Content-Type" -> "application/json")
+        val result: Future[Result] = controller.authorise(request.map(_.as[PdsAuthRequest])) // Convert to expected type
         status(result) mustBe OK
         contentAsJson(result).as[PdsAuthResponse] shouldBe serviceResponse
       }
@@ -68,8 +73,8 @@ class AuthorisationControllerSpec extends AnyWordSpec with Matchers with TestCom
         "message" -> "Auth Type provided is not supported"
       )
 
-      val request = FakeRequest().withBody(authRequest)
-      val result: Future[Result] = controller.authorise(request)
+      val request = FakeRequest().withBody(Json.toJson(authRequest)).withHeaders("Content-Type" -> "application/json")
+      val result: Future[Result] = controller.authorise(request.map(_.as[PdsAuthRequest])) // Convert to expected type
       status(result) mustBe BAD_REQUEST
       contentAsJson(result) shouldBe invalidAuthTypeResponse
     }
