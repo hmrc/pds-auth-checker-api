@@ -18,12 +18,12 @@ package uk.gov.hmrc.pdsauthcheckerapi.models
 
 import play.api.libs.json.{Json, Reads}
 
-case class UnvalidatedRequest(
+case class UnvalidatedPdsAuthRequest(
                                validityDate: Option[String],
                                authType: String,
                                eoris: Seq[String]
                              )
 
-object UnvalidatedRequest {
-  implicit val reads: Reads[UnvalidatedRequest] = Json.reads
+object UnvalidatedPdsAuthRequest {
+  implicit val reads: Reads[UnvalidatedPdsAuthRequest] = Json.reads
 }

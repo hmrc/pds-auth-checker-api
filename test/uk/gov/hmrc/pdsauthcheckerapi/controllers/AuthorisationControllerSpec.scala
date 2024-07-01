@@ -16,6 +16,7 @@
 
 package uk.gov.hmrc.pdsauthcheckerapi.controllers
 
+import cats.data.NonEmptyList
 import org.mockito.ArgumentMatchers
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.when
@@ -33,12 +34,21 @@ import play.api.mvc.Result
 import uk.gov.hmrc.http.HeaderCarrier
 import uk.gov.hmrc.pdsauthcheckerapi.base.TestCommonGenerators
 import uk.gov.hmrc.pdsauthcheckerapi.models.{
+  AuthorisedBadRequestCode,
   Eori,
+  EoriValidationError,
   PdsAuthRequest,
   PdsAuthResponse,
-  UnvalidatedRequest
+  UnvalidatedPdsAuthRequest,
+  ValidationErrorResponse
 }
-import uk.gov.hmrc.pdsauthcheckerapi.services.PdsService
+import uk.gov.hmrc.pdsauthcheckerapi.services.{
+  ErrorConverterService,
+  PdsService,
+  ValidationService
+}
+import cats.syntax.validated._
+import play.api.mvc.Results.BadRequest
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
@@ -49,13 +59,18 @@ class AuthorisationControllerSpec
     with TestCommonGenerators
     with ScalaFutures {
 
-  val config = Configuration("auth.supportedTypes" -> "UKIM")
-  val mockPdsService = mock[PdsService]
+  val config: Configuration = Configuration("auth.supportedTypes" -> "UKIM")
+  val mockPdsService: PdsService = mock[PdsService]
+  val mockValidationService: ValidationService = mock[ValidationService]
+  val mockErrorConverterService: ErrorConverterService =
+    mock[ErrorConverterService]
   val controller = new AuthorisationController(
     Helpers.stubControllerComponents(),
     config,
-    mockPdsService
-  );
+    mockPdsService,
+    mockValidationService,
+    mockErrorConverterService
+  )
   def createValidationError(validationError: JsObject): JsObject = {
     Json.obj(
       "code" -> "INVALID_FORMAT",
@@ -65,8 +80,8 @@ class AuthorisationControllerSpec
   }
   def authRequestToUnvalidatedRequest(
       authRequest: PdsAuthRequest
-  ): UnvalidatedRequest = {
-    UnvalidatedRequest(
+  ): UnvalidatedPdsAuthRequest = {
+    UnvalidatedPdsAuthRequest(
       authRequest.validityDate.map(_.toString),
       authRequest.authType,
       authRequest.eoris.map(_.value)
@@ -79,6 +94,11 @@ class AuthorisationControllerSpec
       val responseGen = authRequestGen.flatMap(authorisationResponseGen)
 
       forAll(authRequestGen, responseGen) { (authRequest, serviceResponse) =>
+        when(
+          mockValidationService.validateRequest(
+            ArgumentMatchers.eq(authRequestToUnvalidatedRequest(authRequest))
+          )
+        ).thenReturn(authRequest.validNel)
         when(
           mockPdsService
             .getValidatedCustoms(ArgumentMatchers.eq(authRequest))(
@@ -116,6 +136,27 @@ class AuthorisationControllerSpec
         "eori" -> "GB123456789",
         "validationError" -> "Invalid Format: Too few digits"
       )
+      val eoriValidationError =
+        EoriValidationError("GB123456789", "Invalid Format: Too few digits")
+      val validationErrorResponse = BadRequest(
+        Json.toJson(
+          ValidationErrorResponse(
+            AuthorisedBadRequestCode.InvalidFormat,
+            "Input format for request data",
+            NonEmptyList.one(eoriValidationError).toList
+          )
+        )
+      )
+      when(
+        mockValidationService.validateRequest(
+          ArgumentMatchers.eq(authRequestToUnvalidatedRequest(authRequest))
+        )
+      ).thenReturn(eoriValidationError.invalidNel)
+      when(
+        mockErrorConverterService.convertValidationError(
+          ArgumentMatchers.eq(NonEmptyList.one(eoriValidationError))
+        )
+      ).thenReturn(validationErrorResponse)
 
       val request =
         FakeRequest().withBody(authRequestToUnvalidatedRequest(authRequest))
@@ -131,6 +172,30 @@ class AuthorisationControllerSpec
         "eori" -> "GB1234567891212",
         "validationError" -> "Invalid Format: Too many digits"
       )
+      val eoriValidationError =
+        EoriValidationError(
+          "GB1234567891212",
+          "Invalid Format: Too many digits"
+        )
+      val validationErrorResponse = BadRequest(
+        Json.toJson(
+          ValidationErrorResponse(
+            AuthorisedBadRequestCode.InvalidFormat,
+            "Input format for request data",
+            NonEmptyList.one(eoriValidationError).toList
+          )
+        )
+      )
+      when(
+        mockValidationService.validateRequest(
+          ArgumentMatchers.eq(authRequestToUnvalidatedRequest(authRequest))
+        )
+      ).thenReturn(eoriValidationError.invalidNel)
+      when(
+        mockErrorConverterService.convertValidationError(
+          ArgumentMatchers.eq(NonEmptyList.one(eoriValidationError))
+        )
+      ).thenReturn(validationErrorResponse)
 
       val request =
         FakeRequest().withBody(authRequestToUnvalidatedRequest(authRequest))
@@ -145,6 +210,30 @@ class AuthorisationControllerSpec
         "eori" -> "FR123456789121",
         "validationError" -> "Invalid Format: FR is not a supported country code"
       )
+      val eoriValidationError =
+        EoriValidationError(
+          "FR123456789121",
+          "Invalid Format: FR is not a supported country code"
+        )
+      val validationErrorResponse = BadRequest(
+        Json.toJson(
+          ValidationErrorResponse(
+            AuthorisedBadRequestCode.InvalidFormat,
+            "Input format for request data",
+            NonEmptyList.one(eoriValidationError).toList
+          )
+        )
+      )
+      when(
+        mockValidationService.validateRequest(
+          ArgumentMatchers.eq(authRequestToUnvalidatedRequest(authRequest))
+        )
+      ).thenReturn(eoriValidationError.invalidNel)
+      when(
+        mockErrorConverterService.convertValidationError(
+          ArgumentMatchers.eq(NonEmptyList.one(eoriValidationError))
+        )
+      ).thenReturn(validationErrorResponse)
 
       val request =
         FakeRequest().withBody(authRequestToUnvalidatedRequest(authRequest))
@@ -159,6 +248,30 @@ class AuthorisationControllerSpec
         "eori" -> "GB12345678912*",
         "validationError" -> "Invalid Format: EORI must start with GB or XI and be followed by 12 digits"
       )
+      val eoriValidationError =
+        EoriValidationError(
+          "GB12345678912*",
+          "Invalid Format: EORI must start with GB or XI and be followed by 12 digits"
+        )
+      val validationErrorResponse = BadRequest(
+        Json.toJson(
+          ValidationErrorResponse(
+            AuthorisedBadRequestCode.InvalidFormat,
+            "Input format for request data",
+            NonEmptyList.one(eoriValidationError).toList
+          )
+        )
+      )
+      when(
+        mockValidationService.validateRequest(
+          ArgumentMatchers.eq(authRequestToUnvalidatedRequest(authRequest))
+        )
+      ).thenReturn(eoriValidationError.invalidNel)
+      when(
+        mockErrorConverterService.convertValidationError(
+          ArgumentMatchers.eq(NonEmptyList.one(eoriValidationError))
+        )
+      ).thenReturn(validationErrorResponse)
 
       val request =
         FakeRequest().withBody(authRequestToUnvalidatedRequest(authRequest))
@@ -184,6 +297,35 @@ class AuthorisationControllerSpec
         "message" -> "Input format for request data",
         "validationErrors" -> arrayOfValidationErrors
       )
+      val eoriValidationErrors = NonEmptyList(
+        EoriValidationError(
+          "FR123456789",
+          "Invalid Format: FR is not a supported country code"
+        ),
+        List(
+          EoriValidationError("FR123456789", "Invalid Format: Too few digits")
+        )
+      )
+
+      val validationErrorResponse = BadRequest(
+        Json.toJson(
+          ValidationErrorResponse(
+            AuthorisedBadRequestCode.InvalidFormat,
+            "Input format for request data",
+            eoriValidationErrors.toList
+          )
+        )
+      )
+      when(
+        mockValidationService.validateRequest(
+          ArgumentMatchers.eq(authRequestToUnvalidatedRequest(authRequest))
+        )
+      ).thenReturn(eoriValidationErrors.invalid)
+      when(
+        mockErrorConverterService.convertValidationError(
+          ArgumentMatchers.eq(eoriValidationErrors)
+        )
+      ).thenReturn(validationErrorResponse)
 
       val request =
         FakeRequest().withBody(authRequestToUnvalidatedRequest(authRequest))

@@ -18,7 +18,7 @@ package uk.gov.hmrc.pdsauthcheckerapi.models
 
 import play.api.libs.json.{Json, Writes}
 
-case class AuthorisedBadRequestResponse(
+case class ValidationErrorResponse(
                                          code: AuthorisedBadRequestCode,
                                          message: String,
                                          validationErrors: Seq[ValidationError]
@@ -35,6 +35,6 @@ object AuthorisedBadRequestCode {
     }
 }
 
-object AuthorisedBadRequestResponse {
-  implicit val writes: Writes[AuthorisedBadRequestResponse] = Json.writes
+object ValidationErrorResponse {
+  implicit val writes: Writes[ValidationErrorResponse] = Json.writes
 }
