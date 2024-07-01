@@ -16,12 +16,18 @@
 
 package uk.gov.hmrc.pdsauthcheckerapi.config
 
-import com.google.inject.AbstractModule
+import com.google.inject.{AbstractModule, name}
+import play.api.{Configuration, Environment}
+import javax.inject.Inject
 
-class Module extends AbstractModule {
+class Module @Inject()(environment: Environment, configuration: Configuration) extends AbstractModule {
 
   override def configure(): Unit = {
-
     bind(classOf[AppConfig]).asEagerSingleton()
+
+    val supportedAuthTypes: Set[String] = configuration.get[Seq[String]]("auth.supportedTypes").toSet
+    bind(classOf[Set[String]])
+      .annotatedWith(name.Names.named("supportedAuthTypes"))
+      .toInstance(supportedAuthTypes)
   }
 }
