@@ -14,31 +14,30 @@
  * limitations under the License.
  */
 
-import org.scalatestplus.play.PlaySpec
-import org.scalatestplus.play.guice.GuiceOneAppPerSuite
+import play.api.test.Helpers
 import play.api.test.Helpers._
-import play.api.test.{FakeRequest, Helpers}
+import play.api.test.FakeRequest
 import play.api.libs.json.Json
 import uk.gov.hmrc.pdsauthcheckerapi.models.{PdsAuthRequest, PdsAuthResponse, PdsAuthResponseResult, Eori}
 import uk.gov.hmrc.pdsauthcheckerapi.services.PdsService
 import uk.gov.hmrc.pdsauthcheckerapi.actions.AuthTypeAction
 import uk.gov.hmrc.pdsauthcheckerapi.controllers.AuthorisationController
-import org.mockito.MockitoSugar
-import uk.gov.hmrc.http.HeaderCarrier
-
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpecLike
+import org.scalatestplus.mockito.MockitoSugar
 import scala.concurrent.Future
-import scala.concurrent.ExecutionContext.Implicits.global
 import java.time.LocalDate
 
-class AuthorisationControllerSpec extends PlaySpec with GuiceOneAppPerSuite with MockitoSugar {
+class AuthorisationControllerSpec extends AnyWordSpecLike with Matchers with MockitoSugar {
 
   "AuthorisationController" should {
 
     "return OK with valid PdsAuthResponse for a valid request" in {
       val mockPdsService = mock[PdsService]
-      val mockAuthTypeAction = new AuthTypeAction(Helpers.stubBodyParser(), Set("ValidAuthType"))
+      val mockBodyParser = stubControllerComponents().parsers.defaultBodyParser
+      val mockAuthTypeAction = new AuthTypeAction(mockBodyParser, Set("ValidAuthType"))
 
-      val controller = new AuthorisationController(Helpers.stubControllerComponents(), mockPdsService, mockAuthTypeAction)
+      val controller = new AuthorisationController(stubControllerComponents(), mockPdsService, mockAuthTypeAction)
 
       val validRequest = PdsAuthRequest(Some(LocalDate.now()), "ValidAuthType", Seq(Eori("GB123456789000")))
       val expectedResponse = PdsAuthResponse(
@@ -47,7 +46,7 @@ class AuthorisationControllerSpec extends PlaySpec with GuiceOneAppPerSuite with
         Seq(PdsAuthResponseResult(Eori("GB123456789000"), true, 0))
       )
 
-      when(mockPdsService.getValidatedCustoms(any[PdsAuthRequest])(any[HeaderCarrier]))
+      org.scalatestplus.when(mockPdsService.getValidatedCustoms(any[PdsAuthRequest])(any[HeaderCarrier]))
         .thenReturn(Future.successful(expectedResponse))
 
       val request = FakeRequest(POST, "/authorise")
@@ -56,15 +55,16 @@ class AuthorisationControllerSpec extends PlaySpec with GuiceOneAppPerSuite with
 
       val result = controller.authorise()(request)
 
-      status(result) mustBe OK
-      contentAsJson(result) mustBe Json.toJson(expectedResponse)
+      status(result) shouldBe OK
+      contentAsJson(result) shouldBe Json.toJson(expectedResponse)
     }
 
     "return BadRequest for an invalid auth type" in {
       val mockPdsService = mock[PdsService]
-      val mockAuthTypeAction = new AuthTypeAction(Helpers.stubBodyParser(), Set("ValidAuthType"))
+      val mockBodyParser = stubControllerComponents().parsers.defaultBodyParser
+      val mockAuthTypeAction = new AuthTypeAction(mockBodyParser, Set("ValidAuthType"))
 
-      val controller = new AuthorisationController(Helpers.stubControllerComponents(), mockPdsService, mockAuthTypeAction)
+      val controller = new AuthorisationController(stubControllerComponents(), mockPdsService, mockAuthTypeAction)
 
       val invalidRequest = PdsAuthRequest(Some(LocalDate.now()), "InvalidAuthType", Seq(Eori("GB123456789000")))
 
@@ -74,8 +74,8 @@ class AuthorisationControllerSpec extends PlaySpec with GuiceOneAppPerSuite with
 
       val result = controller.authorise()(request)
 
-      status(result) mustBe BAD_REQUEST
-      contentAsJson(result) mustBe Json.obj(
+      status(result) shouldBe BAD_REQUEST
+      contentAsJson(result) shouldBe Json.obj(
         "code" -> "INVALID_AUTHTYPE",
         "message" -> "Auth Type provided is not supported"
       )
