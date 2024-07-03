@@ -25,9 +25,5 @@ class Module @Inject()(environment: Environment, configuration: Configuration) e
   override def configure(): Unit = {
     bind(classOf[AppConfig]).asEagerSingleton()
 
-    val supportedAuthTypes: Set[String] = configuration.get[Seq[String]]("auth.supportedTypes").toSet
-    bind(classOf[Set[String]])
-      .annotatedWith(name.Names.named("supportedAuthTypes"))
-      .toInstance(supportedAuthTypes)
   }
 }

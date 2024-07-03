@@ -15,6 +15,7 @@
  */
 
 package uk.gov.hmrc.pdsauthcheckerapi.actions
+import play.api.Configuration
 
 import play.api.mvc._
 import play.api.libs.json.Json
@@ -26,8 +27,11 @@ import scala.concurrent.{ExecutionContext, Future}
 @Singleton
 class AuthTypeAction @Inject()(
   val parser: BodyParsers.Default,
-  @Named("supportedAuthTypes") supportedAuthTypes: Set[String]
+  config: Configuration,
 )(implicit val executionContext:  ExecutionContext) extends ActionBuilder[Request, AnyContent] {
+
+  private val supportedAuthTypes: Set[String] =
+    config.get[String]("auth.supportedTypes").split(",").map(_.trim).toSet
 
   override def invokeBlock[A](request: Request[A], block: Request[A] => Future[Result]): Future[Result] = {
     request.body match {

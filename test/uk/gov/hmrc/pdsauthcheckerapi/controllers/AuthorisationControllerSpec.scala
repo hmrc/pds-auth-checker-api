@@ -36,6 +36,7 @@ import org.mockito.ArgumentMatchers.any
 import org.apache.pekko.stream.testkit.NoMaterializer
 import org.scalatest.matchers.must.Matchers.convertToAnyMustWrapper
 import org.scalatest.time.SpanSugar.convertIntToGrainOfTime
+import play.api.Configuration
 
 class AuthorisationControllerSpec extends AnyWordSpecLike with Matchers with MockitoSugar {
   implicit val mat = NoMaterializer
@@ -45,7 +46,8 @@ class AuthorisationControllerSpec extends AnyWordSpecLike with Matchers with Moc
     "return OK with valid PdsAuthResponse for a valid request" in {
       val mockPdsService = mock[PdsService]
       val mockBodyParser = mock[BodyParsers.Default]
-      val mockAuthTypeAction = new FakeAuthTypeAction(mockBodyParser, Set("UKIM"))
+      val config: Configuration = Configuration("auth.supportedTypes" -> "UKIM")
+      val mockAuthTypeAction = new FakeAuthTypeAction(mockBodyParser, config)
 
       val controllerComponents: ControllerComponents = Helpers.stubControllerComponents()
       val controller = new AuthorisationController(controllerComponents, mockPdsService, mockAuthTypeAction)
@@ -73,6 +75,7 @@ class AuthorisationControllerSpec extends AnyWordSpecLike with Matchers with Moc
 
       val result = controller.authorise()(request)
 
+      println(contentAsJson(result))
       status(result) mustBe OK
       contentAsJson(result).as[PdsAuthResponse] shouldBe expectedResponse
     }
@@ -80,7 +83,8 @@ class AuthorisationControllerSpec extends AnyWordSpecLike with Matchers with Moc
     "return BadRequest for an invalid auth type" in {
       val mockPdsService = mock[PdsService]
       val mockBodyParser = mock[BodyParsers.Default]
-      val mockAuthTypeAction = new FakeAuthTypeAction(mockBodyParser, Set("InvalidAuthType"))
+      val config: Configuration = Configuration("auth.supportedTypes" -> "InvalidAuthType")
+      val mockAuthTypeAction = new FakeAuthTypeAction(mockBodyParser, config)
 
       val controllerComponents: ControllerComponents = Helpers.stubControllerComponents()
       val controller = new AuthorisationController(controllerComponents, mockPdsService, mockAuthTypeAction)

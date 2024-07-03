@@ -16,6 +16,7 @@
 
 package uk.gov.hmrc.pdsauthcheckerapi.controllers
 
+
 import javax.inject._
 import play.api.libs.json.Json
 import play.api.mvc._
@@ -31,7 +32,7 @@ import scala.concurrent.ExecutionContext
 class AuthorisationController @Inject()(
   cc: ControllerComponents,
   pdsService: PdsService,
-  authTypeAction: AuthTypeAction
+  authTypeAction: AuthTypeAction,
 )(implicit ec: ExecutionContext) extends BackendController(cc) {
 
   def authorise: Action[PdsAuthRequest] = authTypeAction.async(parse.json[models.PdsAuthRequest]) { implicit request =>
@@ -41,3 +42,4 @@ class AuthorisationController @Inject()(
     }
   }
 }
+
