@@ -25,12 +25,9 @@ import scala.concurrent.{ExecutionContext, Future}
 
 @Singleton
 class AuthTypeAction @Inject()(
-  parser: BodyParsers.Default,
+  val parser: BodyParsers.Default,
   @Named("supportedAuthTypes") supportedAuthTypes: Set[String]
-)(implicit ec: ExecutionContext) extends ActionBuilder[Request, AnyContent] {
-
-  override def parser: BodyParser[AnyContent] = parser
-  override protected def executionContext: ExecutionContext = ec
+)(implicit val executionContext:  ExecutionContext) extends ActionBuilder[Request, AnyContent] {
 
   override def invokeBlock[A](request: Request[A], block: Request[A] => Future[Result]): Future[Result] = {
     request.body match {

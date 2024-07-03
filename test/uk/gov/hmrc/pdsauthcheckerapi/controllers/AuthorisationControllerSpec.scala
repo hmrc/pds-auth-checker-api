@@ -16,69 +16,92 @@
 
 import play.api.test.Helpers
 import play.api.test.Helpers._
+import play.api.mvc._
 import play.api.test.FakeRequest
 import play.api.libs.json.Json
-import uk.gov.hmrc.pdsauthcheckerapi.models.{PdsAuthRequest, PdsAuthResponse, PdsAuthResponseResult, Eori}
+import uk.gov.hmrc.pdsauthcheckerapi.models.{Eori, PdsAuthRequest, PdsAuthResponse, PdsAuthResponseResult}
 import uk.gov.hmrc.pdsauthcheckerapi.services.PdsService
-import uk.gov.hmrc.pdsauthcheckerapi.actions.AuthTypeAction
 import uk.gov.hmrc.pdsauthcheckerapi.controllers.AuthorisationController
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
 import org.scalatestplus.mockito.MockitoSugar
-import scala.concurrent.Future
+
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration._
+import scala.concurrent.{Await, Future}
 import java.time.LocalDate
+import uk.gov.hmrc.pdsauthcheckerapi.actions.FakeAuthTypeAction
+import org.mockito.Mockito._
+import org.mockito.ArgumentMatchers.any
+import org.apache.pekko.stream.testkit.NoMaterializer
+import org.scalatest.matchers.must.Matchers.convertToAnyMustWrapper
+import org.scalatest.time.SpanSugar.convertIntToGrainOfTime
 
 class AuthorisationControllerSpec extends AnyWordSpecLike with Matchers with MockitoSugar {
+  implicit val mat = NoMaterializer
 
   "AuthorisationController" should {
 
     "return OK with valid PdsAuthResponse for a valid request" in {
       val mockPdsService = mock[PdsService]
-      val mockBodyParser = stubControllerComponents().parsers.defaultBodyParser
-      val mockAuthTypeAction = new AuthTypeAction(mockBodyParser, Set("ValidAuthType"))
+      val mockBodyParser = mock[BodyParsers.Default]
+      val mockAuthTypeAction = new FakeAuthTypeAction(mockBodyParser, Set("UKIM"))
 
-      val controller = new AuthorisationController(stubControllerComponents(), mockPdsService, mockAuthTypeAction)
+      val controllerComponents: ControllerComponents = Helpers.stubControllerComponents()
+      val controller = new AuthorisationController(controllerComponents, mockPdsService, mockAuthTypeAction)
 
-      val validRequest = PdsAuthRequest(Some(LocalDate.now()), "ValidAuthType", Seq(Eori("GB123456789000")))
+      val validRequest = PdsAuthRequest(Some(LocalDate.now()), "UKIM", Seq(Eori("GB123456789000")))
       val expectedResponse = PdsAuthResponse(
         LocalDate.now(),
-        "ValidAuthType",
+        "UKIM",
         Seq(PdsAuthResponseResult(Eori("GB123456789000"), true, 0))
       )
 
-      org.scalatestplus.when(mockPdsService.getValidatedCustoms(any[PdsAuthRequest])(any[HeaderCarrier]))
+      println(s"validRequest: ${Json.toJson(validRequest).toString()}")
+      println(s"Expected Response: ${Json.toJson(expectedResponse).toString()}")
+
+
+      when(mockPdsService.getValidatedCustoms(any[PdsAuthRequest])(any))
         .thenReturn(Future.successful(expectedResponse))
 
-      val request = FakeRequest(POST, "/authorise")
+      val request = FakeRequest(POST, "/authorisations")
         .withHeaders(CONTENT_TYPE -> "application/json")
         .withBody(Json.toJson(validRequest))
 
+
+      println(s"Request: $request")
+
       val result = controller.authorise()(request)
 
-      status(result) shouldBe OK
-      contentAsJson(result) shouldBe Json.toJson(expectedResponse)
+      status(result) mustBe OK
+      contentAsJson(result).as[PdsAuthResponse] shouldBe expectedResponse
     }
 
     "return BadRequest for an invalid auth type" in {
       val mockPdsService = mock[PdsService]
-      val mockBodyParser = stubControllerComponents().parsers.defaultBodyParser
-      val mockAuthTypeAction = new AuthTypeAction(mockBodyParser, Set("ValidAuthType"))
+      val mockBodyParser = mock[BodyParsers.Default]
+      val mockAuthTypeAction = new FakeAuthTypeAction(mockBodyParser, Set("InvalidAuthType"))
 
-      val controller = new AuthorisationController(stubControllerComponents(), mockPdsService, mockAuthTypeAction)
+      val controllerComponents: ControllerComponents = Helpers.stubControllerComponents()
+      val controller = new AuthorisationController(controllerComponents, mockPdsService, mockAuthTypeAction)
 
       val invalidRequest = PdsAuthRequest(Some(LocalDate.now()), "InvalidAuthType", Seq(Eori("GB123456789000")))
 
-      val request = FakeRequest(POST, "/authorise")
+      val invalidAuthTypeResponse = Json.obj(
+        "code" -> "INVALID_AUTHTYPE",
+        "message" -> "Auth Type provided is not supported"
+      )
+
+      val request = FakeRequest(POST, "/authorisations")
         .withHeaders(CONTENT_TYPE -> "application/json")
         .withBody(Json.toJson(invalidRequest))
 
       val result = controller.authorise()(request)
 
+      println(s"invalidRequest: ${Json.toJson(invalidRequest).toString()}")
       status(result) shouldBe BAD_REQUEST
-      contentAsJson(result) shouldBe Json.obj(
-        "code" -> "INVALID_AUTHTYPE",
-        "message" -> "Auth Type provided is not supported"
-      )
+      contentAsJson(result) shouldBe invalidAuthTypeResponse
     }
   }
 }
+
