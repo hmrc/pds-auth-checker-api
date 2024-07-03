@@ -56,12 +56,9 @@ class ValidationService {
         validatedDate,
         validatedEoris
       ).tupled
-    val x = merged.map { case (date, eoris) =>
+    merged.map { case (date, eoris) =>
       PdsAuthRequest(date, unvalidatedPdsRequest.authType, eoris)
     }
-    print(x)
-
-    x
 
   }
 }

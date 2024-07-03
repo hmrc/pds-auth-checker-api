@@ -36,5 +36,5 @@ object AuthorisedBadRequestCode {
 }
 
 object ValidationErrorResponse {
-  implicit val writes: Writes[ValidationErrorResponse] = Json.writes
+  implicit val writes: Writes[ValidationErrorResponse] = Json.writes[ValidationErrorResponse]
 }

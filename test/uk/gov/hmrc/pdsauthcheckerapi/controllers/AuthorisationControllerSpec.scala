@@ -48,8 +48,6 @@ import uk.gov.hmrc.pdsauthcheckerapi.services.{
   ValidationService
 }
 import cats.syntax.validated._
-import play.api.mvc.Results.BadRequest
-
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
@@ -129,7 +127,7 @@ class AuthorisationControllerSpec
       contentAsJson(result) shouldBe invalidAuthTypeResponse
     }
 
-    "return 400 BAD_REQUEST error message for eori with too few digits" in {
+    "return 400 BAD_REQUEST error message for incorrectly formatted EORI" in {
       val authRequest = authorisationRequestGen.sample.get
         .copy(eoris = Seq(Eori("GB123456789")))
       val validationErrors = Json.obj(
@@ -138,15 +136,12 @@ class AuthorisationControllerSpec
       )
       val eoriValidationError =
         EoriValidationError("GB123456789", "Invalid Format: Too few digits")
-      val validationErrorResponse = BadRequest(
-        Json.toJson(
-          ValidationErrorResponse(
-            AuthorisedBadRequestCode.InvalidFormat,
-            "Input format for request data",
-            NonEmptyList.one(eoriValidationError).toList
-          )
+      val validationErrorResponse =
+        ValidationErrorResponse(
+          AuthorisedBadRequestCode.InvalidFormat,
+          "Input format for request data",
+          NonEmptyList.one(eoriValidationError).toList
         )
-      )
       when(
         mockValidationService.validateRequest(
           ArgumentMatchers.eq(authRequestToUnvalidatedRequest(authRequest))
@@ -163,175 +158,6 @@ class AuthorisationControllerSpec
       val result: Future[Result] = controller.authorise(request)
       status(result) mustBe BAD_REQUEST
       contentAsJson(result) shouldBe createValidationError(validationErrors)
-    }
-
-    "return 400 BAD_REQUEST error message for an eori with too many digits" in {
-      val authRequest = authorisationRequestGen.sample.get
-        .copy(eoris = Seq(Eori("GB1234567891212")))
-      val validationErrors = Json.obj(
-        "eori" -> "GB1234567891212",
-        "validationError" -> "Invalid Format: Too many digits"
-      )
-      val eoriValidationError =
-        EoriValidationError(
-          "GB1234567891212",
-          "Invalid Format: Too many digits"
-        )
-      val validationErrorResponse = BadRequest(
-        Json.toJson(
-          ValidationErrorResponse(
-            AuthorisedBadRequestCode.InvalidFormat,
-            "Input format for request data",
-            NonEmptyList.one(eoriValidationError).toList
-          )
-        )
-      )
-      when(
-        mockValidationService.validateRequest(
-          ArgumentMatchers.eq(authRequestToUnvalidatedRequest(authRequest))
-        )
-      ).thenReturn(eoriValidationError.invalidNel)
-      when(
-        mockErrorConverterService.convertValidationError(
-          ArgumentMatchers.eq(NonEmptyList.one(eoriValidationError))
-        )
-      ).thenReturn(validationErrorResponse)
-
-      val request =
-        FakeRequest().withBody(authRequestToUnvalidatedRequest(authRequest))
-      val result: Future[Result] = controller.authorise(request)
-      status(result) mustBe BAD_REQUEST
-      contentAsJson(result) shouldBe createValidationError(validationErrors)
-    }
-    "return 400 BAD_REQUEST error message for an eori with an invalid country code" in {
-      val authRequest = authorisationRequestGen.sample.get
-        .copy(eoris = Seq(Eori("FR123456789121")))
-      val validationErrors = Json.obj(
-        "eori" -> "FR123456789121",
-        "validationError" -> "Invalid Format: FR is not a supported country code"
-      )
-      val eoriValidationError =
-        EoriValidationError(
-          "FR123456789121",
-          "Invalid Format: FR is not a supported country code"
-        )
-      val validationErrorResponse = BadRequest(
-        Json.toJson(
-          ValidationErrorResponse(
-            AuthorisedBadRequestCode.InvalidFormat,
-            "Input format for request data",
-            NonEmptyList.one(eoriValidationError).toList
-          )
-        )
-      )
-      when(
-        mockValidationService.validateRequest(
-          ArgumentMatchers.eq(authRequestToUnvalidatedRequest(authRequest))
-        )
-      ).thenReturn(eoriValidationError.invalidNel)
-      when(
-        mockErrorConverterService.convertValidationError(
-          ArgumentMatchers.eq(NonEmptyList.one(eoriValidationError))
-        )
-      ).thenReturn(validationErrorResponse)
-
-      val request =
-        FakeRequest().withBody(authRequestToUnvalidatedRequest(authRequest))
-      val result: Future[Result] = controller.authorise(request)
-      status(result) mustBe BAD_REQUEST
-      contentAsJson(result) shouldBe createValidationError(validationErrors)
-    }
-    "return 400 BAD_REQUEST error message for an eori which does not contain only digits after the country code" in {
-      val authRequest = authorisationRequestGen.sample.get
-        .copy(eoris = Seq(Eori("GB12345678912*")))
-      val validationErrors = Json.obj(
-        "eori" -> "GB12345678912*",
-        "validationError" -> "Invalid Format: EORI must start with GB or XI and be followed by 12 digits"
-      )
-      val eoriValidationError =
-        EoriValidationError(
-          "GB12345678912*",
-          "Invalid Format: EORI must start with GB or XI and be followed by 12 digits"
-        )
-      val validationErrorResponse = BadRequest(
-        Json.toJson(
-          ValidationErrorResponse(
-            AuthorisedBadRequestCode.InvalidFormat,
-            "Input format for request data",
-            NonEmptyList.one(eoriValidationError).toList
-          )
-        )
-      )
-      when(
-        mockValidationService.validateRequest(
-          ArgumentMatchers.eq(authRequestToUnvalidatedRequest(authRequest))
-        )
-      ).thenReturn(eoriValidationError.invalidNel)
-      when(
-        mockErrorConverterService.convertValidationError(
-          ArgumentMatchers.eq(NonEmptyList.one(eoriValidationError))
-        )
-      ).thenReturn(validationErrorResponse)
-
-      val request =
-        FakeRequest().withBody(authRequestToUnvalidatedRequest(authRequest))
-      val result: Future[Result] = controller.authorise(request)
-      status(result) mustBe BAD_REQUEST
-      contentAsJson(result) shouldBe createValidationError(validationErrors)
-    }
-    "return 400 BAD_REQUEST and an array of error messages for an eori with multiple validation errors" in {
-      val authRequest = authorisationRequestGen.sample.get
-        .copy(eoris = Seq(Eori("FR123456789")))
-      val arrayOfValidationErrors = Json.arr(
-        Json.obj(
-          "eori" -> "FR123456789",
-          "validationError" -> "Invalid Format: FR is not a supported country code"
-        ),
-        Json.obj(
-          "eori" -> "FR123456789",
-          "validationError" -> "Invalid Format: Too few digits"
-        )
-      )
-      val responseBody = Json.obj(
-        "code" -> "INVALID_FORMAT",
-        "message" -> "Input format for request data",
-        "validationErrors" -> arrayOfValidationErrors
-      )
-      val eoriValidationErrors = NonEmptyList(
-        EoriValidationError(
-          "FR123456789",
-          "Invalid Format: FR is not a supported country code"
-        ),
-        List(
-          EoriValidationError("FR123456789", "Invalid Format: Too few digits")
-        )
-      )
-
-      val validationErrorResponse = BadRequest(
-        Json.toJson(
-          ValidationErrorResponse(
-            AuthorisedBadRequestCode.InvalidFormat,
-            "Input format for request data",
-            eoriValidationErrors.toList
-          )
-        )
-      )
-      when(
-        mockValidationService.validateRequest(
-          ArgumentMatchers.eq(authRequestToUnvalidatedRequest(authRequest))
-        )
-      ).thenReturn(eoriValidationErrors.invalid)
-      when(
-        mockErrorConverterService.convertValidationError(
-          ArgumentMatchers.eq(eoriValidationErrors)
-        )
-      ).thenReturn(validationErrorResponse)
-
-      val request =
-        FakeRequest().withBody(authRequestToUnvalidatedRequest(authRequest))
-      val result: Future[Result] = controller.authorise(request)
-      status(result) mustBe BAD_REQUEST
-      contentAsJson(result) shouldBe responseBody
     }
   }
 }

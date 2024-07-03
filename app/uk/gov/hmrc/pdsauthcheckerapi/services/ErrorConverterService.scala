@@ -17,24 +17,17 @@
 package uk.gov.hmrc.pdsauthcheckerapi.services
 
 import cats.data.NonEmptyList
-import play.api.libs.json.Json
-import play.api.mvc.Results.BadRequest
-import play.api.mvc.Result
 import uk.gov.hmrc.pdsauthcheckerapi.models.{
   AuthorisedBadRequestCode,
   ValidationError,
   ValidationErrorResponse
 }
 class ErrorConverterService {
-  def convertValidationError(errors: NonEmptyList[ValidationError]): Result = {
-    BadRequest(
-      Json.toJson(
+  def convertValidationError(errors: NonEmptyList[ValidationError]): ValidationErrorResponse = {
         ValidationErrorResponse(
           AuthorisedBadRequestCode.InvalidFormat,
           "Input format for request data",
           errors.toList
-        )
-      )
     )
   }
 }

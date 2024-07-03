@@ -50,7 +50,12 @@ class AuthorisationController @Inject() (
             .fold(
               validationErrors =>
                 Future.successful(
-                  errorConverterService.convertValidationError(validationErrors)
+                  BadRequest(
+                    Json.toJson(
+                      errorConverterService
+                        .convertValidationError(validationErrors)
+                    )
+                  )
                 ),
               validatedPdsRequest =>
                 pdsService
