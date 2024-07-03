@@ -15,36 +15,67 @@
  */
 
 package uk.gov.hmrc.pdsauthcheckerapi.controllers
+import play.api.Configuration
 
 import javax.inject._
-import play.api.Configuration
 import play.api.libs.json.Json
-import play.api.mvc._
-import uk.gov.hmrc.pdsauthcheckerapi.models
-import uk.gov.hmrc.pdsauthcheckerapi.models.PdsAuthRequest
-import uk.gov.hmrc.pdsauthcheckerapi.services.PdsService
+import play.api.mvc.{Action, ControllerComponents, Request}
+import uk.gov.hmrc.pdsauthcheckerapi.models.UnvalidatedPdsAuthRequest
+import uk.gov.hmrc.pdsauthcheckerapi.services.{
+  ErrorConverterService,
+  PdsService,
+  ValidationService
+}
 import uk.gov.hmrc.play.bootstrap.backend.controller.BackendController
-
 import scala.concurrent.{ExecutionContext, Future}
 
 @Singleton
-class AuthorisationController @Inject()(cc: ControllerComponents, config: Configuration, pdsService: PdsService)(implicit ec: ExecutionContext) extends BackendController(cc)  {
+class AuthorisationController @Inject() (
+    cc: ControllerComponents,
+    config: Configuration,
+    pdsService: PdsService,
+    validationService: ValidationService,
+    errorConverterService: ErrorConverterService
+)(implicit ec: ExecutionContext)
+    extends BackendController(cc) {
 
-  private val supportedAuthTypes: Set[String] = config.get[String]("auth.supportedTypes").split(",").map(_.trim).toSet
-
-  private val InvalidAuthTypeResponse = BadRequest(Json.obj(
-    "code" -> "INVALID_AUTHTYPE",
-    "message" -> "Auth Type provided is not supported"
-  ))
-
-  def authorise: Action[PdsAuthRequest] = Action(parse.json[models.PdsAuthRequest]).async { implicit request =>
-    val pdsAuthRequestBody = request.body
-    if (!supportedAuthTypes.contains(pdsAuthRequestBody.authType)) {
-      Future.successful(InvalidAuthTypeResponse)
-    } else {
-      pdsService.getValidatedCustoms(pdsAuthRequestBody).map { pdsAuthResponse =>
-        Ok(Json.toJson(pdsAuthResponse))
-      }
+  def authorise: Action[UnvalidatedPdsAuthRequest] =
+    Action(parse.json[UnvalidatedPdsAuthRequest]).async {
+      implicit request: Request[UnvalidatedPdsAuthRequest] =>
+        if (!supportedAuthTypes.contains(request.body.authType)) {
+          Future.successful(InvalidAuthTypeResponse)
+        } else {
+          validationService
+            .validateRequest(request.body)
+            .fold(
+              validationErrors =>
+                Future.successful(
+                  BadRequest(
+                    Json.toJson(
+                      errorConverterService
+                        .convertValidationError(validationErrors)
+                    )
+                  )
+                ),
+              validatedPdsRequest =>
+                pdsService
+                  .getValidatedCustoms(
+                    validatedPdsRequest
+                  )
+                  .map { pdsAuthResponse =>
+                    Ok(Json.toJson(pdsAuthResponse))
+                  }
+            )
+        }
     }
-  }
+
+  private val InvalidAuthTypeResponse = BadRequest(
+    Json.obj(
+      "code" -> "INVALID_AUTHTYPE",
+      "message" -> "Auth Type provided is not supported"
+    )
+  )
+
+  private val supportedAuthTypes: Set[String] =
+    config.get[String]("auth.supportedTypes").split(",").map(_.trim).toSet
 }
