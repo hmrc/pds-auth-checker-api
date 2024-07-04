@@ -20,10 +20,9 @@ import com.google.inject.{AbstractModule, name}
 import play.api.{Configuration, Environment}
 import javax.inject.Inject
 
-class Module @Inject()(environment: Environment, configuration: Configuration) extends AbstractModule {
+class Module extends AbstractModule {
 
   override def configure(): Unit = {
     bind(classOf[AppConfig]).asEagerSingleton()
-
   }
 }
