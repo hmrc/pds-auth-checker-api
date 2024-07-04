@@ -16,37 +16,38 @@
 
 package uk.gov.hmrc.pdsauthcheckerapi.actions
 import play.api.Configuration
-
+import play.api.libs.Comet.json
 import play.api.mvc._
-import play.api.libs.json.Json
-import uk.gov.hmrc.pdsauthcheckerapi.models.PdsAuthRequest
+import play.api.libs.json.{JsValue, Json}
+import play.api.mvc.Results.BadRequest
+import uk.gov.hmrc.pdsauthcheckerapi.models.{PdsAuthRequest, UnvalidatedPdsAuthRequest}
+import uk.gov.hmrc.pdsauthcheckerapi.services.{ErrorConverterService, PdsService, ValidationService}
 
 import javax.inject.{Inject, Named, Singleton}
 import scala.concurrent.{ExecutionContext, Future}
 
 @Singleton
 class AuthTypeAction @Inject()(
-  val parser: BodyParsers.Default,
-  config: Configuration,
-)(implicit val executionContext:  ExecutionContext) extends ActionBuilder[Request, AnyContent] {
+                                val parser: BodyParsers.Default,
+                                config: Configuration
+                              )(implicit val executionContext:  ExecutionContext) extends ActionBuilder[Request, AnyContent] {
+
+  private val InvalidAuthTypeResponse = BadRequest(
+    Json.obj(
+      "code" -> "INVALID_AUTHTYPE",
+      "message" -> "Auth Type provided is not supported"
+    )
+  )
 
   private val supportedAuthTypes: Set[String] =
     config.get[String]("auth.supportedTypes").split(",").map(_.trim).toSet
 
   override def invokeBlock[A](request: Request[A], block: Request[A] => Future[Result]): Future[Result] = {
     request.body match {
-      case json: play.api.mvc.AnyContentAsJson =>
-        json.json.validate[PdsAuthRequest].asOpt match {
-          case Some(pdsAuthRequest) if supportedAuthTypes.contains(pdsAuthRequest.authType) =>
-            block(request)
-          case _ =>
-            Future.successful(Results.BadRequest(Json.obj(
-              "code" -> "INVALID_AUTHTYPE",
-              "message" -> "Auth Type provided is not supported"
-            )))
-        }
+      case unvalidatedRequest:UnvalidatedPdsAuthRequest if supportedAuthTypes.contains(unvalidatedRequest.authType) =>
+        block(request)
       case _ =>
-        Future.successful(Results.BadRequest("Invalid request body"))
+        Future.successful(InvalidAuthTypeResponse)
     }
   }
 }
