@@ -15,31 +15,56 @@
  */
 
 package uk.gov.hmrc.pdsauthcheckerapi.controllers
+import play.api.Configuration
 
 
 import javax.inject._
 import play.api.libs.json.Json
-import play.api.mvc._
-import uk.gov.hmrc.pdsauthcheckerapi.models
-import uk.gov.hmrc.pdsauthcheckerapi.models.PdsAuthRequest
-import uk.gov.hmrc.pdsauthcheckerapi.services.PdsService
+import play.api.mvc.{Action, ControllerComponents, Request}
+import uk.gov.hmrc.pdsauthcheckerapi.models.UnvalidatedPdsAuthRequest
+import uk.gov.hmrc.pdsauthcheckerapi.services.{
+  ErrorConverterService,
+  PdsService,
+  ValidationService
+}
 import uk.gov.hmrc.play.bootstrap.backend.controller.BackendController
 import uk.gov.hmrc.pdsauthcheckerapi.actions.AuthTypeAction
-
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
 
 @Singleton
-class AuthorisationController @Inject()(
-  cc: ControllerComponents,
-  pdsService: PdsService,
-  authTypeAction: AuthTypeAction,
-)(implicit ec: ExecutionContext) extends BackendController(cc) {
+class AuthorisationController @Inject() (
+    cc: ControllerComponents,
+    pdsService: PdsService,
+    validationService: ValidationService,
+    errorConverterService: ErrorConverterService,
+    authTypeAction: AuthTypeAction,
+)(implicit ec: ExecutionContext)
+    extends BackendController(cc) {
 
-  def authorise: Action[PdsAuthRequest] = authTypeAction.async(parse.json[models.PdsAuthRequest]) { implicit request =>
-    val pdsAuthRequestBody = request.body
-    pdsService.getValidatedCustoms(pdsAuthRequestBody).map { pdsAuthResponse =>
-      Ok(Json.toJson(pdsAuthResponse))
+  def authorise: Action[UnvalidatedPdsAuthRequest] =
+    authTypeAction.async(parse.json[UnvalidatedPdsAuthRequest]) {
+      implicit request: Request[UnvalidatedPdsAuthRequest] =>
+        validationService
+          .validateRequest(request.body)
+          .fold(
+            validationErrors =>
+              Future.successful(
+                BadRequest(
+                  Json.toJson(
+                    errorConverterService
+                      .convertValidationError(validationErrors)
+                  )
+                )
+              ),
+            validatedPdsRequest =>
+              pdsService
+                .getValidatedCustoms(
+                  validatedPdsRequest
+                )
+                .map { pdsAuthResponse =>
+                  Ok(Json.toJson(pdsAuthResponse))
+                }
+          )
     }
-  }
 }
 
