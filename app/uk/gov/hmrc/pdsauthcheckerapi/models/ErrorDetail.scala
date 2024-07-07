@@ -14,17 +14,18 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.pdsauthcheckerapi.config
+package uk.gov.hmrc.pdsauthcheckerapi.models
 
-import com.google.inject.AbstractModule
+import play.api.libs.json._
 
-import java.time.Clock
+import java.time.Instant
 
-class Module extends AbstractModule {
-
-  override def configure(): Unit = {
-
-    bind(classOf[AppConfig]).asEagerSingleton()
-    bind(classOf[Clock]).toInstance(Clock.systemUTC())
-  }
+case class ErrorDetail(
+    timestamp: Instant,
+    errorCode: String,
+    errorMessage: String,
+    sourcePDSFaultDetails: String
+)
+object ErrorDetail {
+  implicit val format: OFormat[ErrorDetail] = Json.format[ErrorDetail]
 }

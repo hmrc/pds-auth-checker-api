@@ -16,11 +16,15 @@
 
 package uk.gov.hmrc.pdsauthcheckerapi.controllers
 import play.api.Configuration
-
+import uk.gov.hmrc.auth.core._
+import java.time.Clock
 import javax.inject._
 import play.api.libs.json.Json
 import play.api.mvc.{Action, ControllerComponents, Request}
-import uk.gov.hmrc.pdsauthcheckerapi.models.UnvalidatedPdsAuthRequest
+import uk.gov.hmrc.pdsauthcheckerapi.models.{
+  ErrorDetail,
+  UnvalidatedPdsAuthRequest
+}
 import uk.gov.hmrc.pdsauthcheckerapi.services.{
   ErrorConverterService,
   PdsService,
@@ -35,37 +39,66 @@ class AuthorisationController @Inject() (
     config: Configuration,
     pdsService: PdsService,
     validationService: ValidationService,
-    errorConverterService: ErrorConverterService
+    errorConverterService: ErrorConverterService,
+    clock: Clock,
+    val authConnector: AuthConnector
 )(implicit ec: ExecutionContext)
-    extends BackendController(cc) {
+    extends BackendController(cc)
+    with AuthorisedFunctions {
 
   def authorise: Action[UnvalidatedPdsAuthRequest] =
     Action(parse.json[UnvalidatedPdsAuthRequest]).async {
       implicit request: Request[UnvalidatedPdsAuthRequest] =>
-        if (!supportedAuthTypes.contains(request.body.authType)) {
-          Future.successful(InvalidAuthTypeResponse)
-        } else {
-          validationService
-            .validateRequest(request.body)
-            .fold(
-              validationErrors =>
-                Future.successful(
-                  BadRequest(
-                    Json.toJson(
-                      errorConverterService
-                        .convertValidationError(validationErrors)
+        authorised() {
+          if (!supportedAuthTypes.contains(request.body.authType)) {
+            Future.successful(InvalidAuthTypeResponse)
+          } else {
+            validationService
+              .validateRequest(request.body)
+              .fold(
+                validationErrors =>
+                  Future.successful(
+                    BadRequest(
+                      Json.toJson(
+                        errorConverterService
+                          .convertValidationError(validationErrors)
+                      )
                     )
-                  )
-                ),
-              validatedPdsRequest =>
-                pdsService
-                  .getValidatedCustoms(
-                    validatedPdsRequest
-                  )
-                  .map { pdsAuthResponse =>
-                    Ok(Json.toJson(pdsAuthResponse))
-                  }
+                  ),
+                validatedPdsRequest =>
+                  pdsService
+                    .getValidatedCustoms(
+                      validatedPdsRequest
+                    )
+                    .map { pdsAuthResponse =>
+                      Ok(Json.toJson(pdsAuthResponse))
+                    }
+              )
+          }
+        } recover {
+          case ex: NoActiveSession =>
+            Unauthorized(
+              Json.toJson(
+                ErrorDetail(
+                  clock.instant(),
+                  "401",
+                  "You are not allowed to access this resource",
+                  "uri=/pds/cnit/validatecustomsauth/v1"
+                )
+              )
             )
+          case ex: AuthorisationException =>
+            Forbidden(
+              Json.toJson(
+                ErrorDetail(
+                  clock.instant(),
+                  "403",
+                  "Authorisation not found",
+                  "uri=/pds/cnit/validatecustomsauth/v1"
+                )
+              )
+            )
+
         }
     }
 

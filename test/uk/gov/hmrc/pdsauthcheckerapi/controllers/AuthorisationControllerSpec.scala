@@ -37,6 +37,7 @@ import uk.gov.hmrc.pdsauthcheckerapi.models.{
   AuthorisedBadRequestCode,
   Eori,
   EoriValidationError,
+  ErrorDetail,
   PdsAuthRequest,
   PdsAuthResponse,
   UnvalidatedPdsAuthRequest,
@@ -48,6 +49,15 @@ import uk.gov.hmrc.pdsauthcheckerapi.services.{
   ValidationService
 }
 import cats.syntax.validated._
+import uk.gov.hmrc.auth.core.{
+  AuthConnector,
+  AuthorisationException,
+  NoActiveSession
+}
+import uk.gov.hmrc.auth.core.authorise.Predicate
+import uk.gov.hmrc.auth.core.retrieve.Retrieval
+
+import java.time.{Clock, Instant, ZoneOffset}
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
@@ -57,18 +67,24 @@ class AuthorisationControllerSpec
     with TestCommonGenerators
     with ScalaFutures {
 
-  val config: Configuration = Configuration("auth.supportedTypes" -> "UKIM")
-  val mockPdsService: PdsService = mock[PdsService]
-  val mockValidationService: ValidationService = mock[ValidationService]
-  val mockErrorConverterService: ErrorConverterService =
-    mock[ErrorConverterService]
-  val controller = new AuthorisationController(
-    Helpers.stubControllerComponents(),
-    config,
-    mockPdsService,
-    mockValidationService,
-    mockErrorConverterService
-  )
+  trait Setup {
+    val config: Configuration = Configuration("auth.supportedTypes" -> "UKIM")
+    val fixedClock: Clock = Clock.fixed(Instant.now(), ZoneOffset.UTC)
+    val mockPdsService: PdsService = mock[PdsService]
+    val mockAuthConnector: AuthConnector = mock[AuthConnector]
+    val mockValidationService: ValidationService = mock[ValidationService]
+    val mockErrorConverterService: ErrorConverterService =
+      mock[ErrorConverterService]
+    val controller = new AuthorisationController(
+      Helpers.stubControllerComponents(),
+      config,
+      mockPdsService,
+      mockValidationService,
+      mockErrorConverterService,
+      fixedClock,
+      mockAuthConnector
+    )
+  }
   def createValidationError(validationError: JsObject): JsObject = {
     Json.obj(
       "code" -> "INVALID_FORMAT",
@@ -87,9 +103,14 @@ class AuthorisationControllerSpec
   }
   "AuthorisationController" should {
 
-    "return 200 OK and return service layer response for supported auth type UKIM" in {
+    "return 200 OK and return service layer response for supported auth type UKIM" in new Setup {
       val authRequestGen = authorisationRequestGen
       val responseGen = authRequestGen.flatMap(authorisationResponseGen)
+      when(
+        mockAuthConnector
+          .authorise(any[Predicate](), any[Retrieval[Unit]]())(any(), any())
+      )
+        .thenReturn(Future.successful(()))
 
       forAll(authRequestGen, responseGen) { (authRequest, serviceResponse) =>
         when(
@@ -111,14 +132,64 @@ class AuthorisationControllerSpec
         contentAsJson(result).as[PdsAuthResponse] shouldBe serviceResponse
       }
     }
+    "return 401 UNAUTHORIZED when there is no active session" in new Setup {
+      when(mockAuthConnector.authorise(any(), any())(any(), any()))
+        .thenReturn(Future.failed(new NoActiveSession("No active session") {}))
+      val authRequestGen = authorisationRequestGen
 
-    "return 400 BAD_REQUEST error message for unsupported auth type" in {
+      forAll(authRequestGen) { authRequest: PdsAuthRequest =>
+        val request =
+          FakeRequest().withBody(authRequestToUnvalidatedRequest(authRequest))
+        val result: Future[Result] = controller.authorise(request)
+        status(result) mustBe UNAUTHORIZED
+        contentAsString(result) mustBe Json
+          .toJson(
+            ErrorDetail(
+              fixedClock.instant(),
+              "401",
+              "You are not allowed to access this resource",
+              "uri=/pds/cnit/validatecustomsauth/v1"
+            )
+          )
+          .toString
+      }
+    }
+
+    "return 403 FORBIDDEN when user is not authorised" in new Setup {
+      when(mockAuthConnector.authorise(any(), any())(any(), any()))
+        .thenReturn(Future.failed(new AuthorisationException("Forbidden") {}))
+      val authRequestGen = authorisationRequestGen
+
+      forAll(authRequestGen) { authRequest: PdsAuthRequest =>
+        val request =
+          FakeRequest().withBody(authRequestToUnvalidatedRequest(authRequest))
+        val result: Future[Result] = controller.authorise(request)
+        status(result) mustBe FORBIDDEN
+        contentAsString(result) mustBe Json
+          .toJson(
+            ErrorDetail(
+              fixedClock.instant(),
+              "403",
+              "Authorisation not found",
+              "uri=/pds/cnit/validatecustomsauth/v1"
+            )
+          )
+          .toString
+      }
+    }
+
+    "return 400 BAD_REQUEST error message for unsupported auth type" in new Setup {
       val authRequest = authorisationRequestGen.sample.get
         .copy(authType = "UNSUPPORTED AUTH TYPE")
       val invalidAuthTypeResponse = Json.obj(
         "code" -> "INVALID_AUTHTYPE",
         "message" -> "Auth Type provided is not supported"
       )
+      when(
+        mockAuthConnector
+          .authorise(any[Predicate](), any[Retrieval[Unit]]())(any(), any())
+      )
+        .thenReturn(Future.successful(()))
 
       val request =
         FakeRequest().withBody(authRequestToUnvalidatedRequest(authRequest))
@@ -127,7 +198,7 @@ class AuthorisationControllerSpec
       contentAsJson(result) shouldBe invalidAuthTypeResponse
     }
 
-    "return 400 BAD_REQUEST error message for incorrectly formatted EORI" in {
+    "return 400 BAD_REQUEST error message for incorrectly formatted EORI" in new Setup {
       val authRequest = authorisationRequestGen.sample.get
         .copy(eoris = Seq(Eori("GB123456789")))
       val validationErrors = Json.obj(
@@ -142,6 +213,11 @@ class AuthorisationControllerSpec
           "Input format for request data",
           NonEmptyList.one(eoriValidationError).toList
         )
+      when(
+        mockAuthConnector
+          .authorise(any[Predicate](), any[Retrieval[Unit]]())(any(), any())
+      )
+        .thenReturn(Future.successful(()))
       when(
         mockValidationService.validateRequest(
           ArgumentMatchers.eq(authRequestToUnvalidatedRequest(authRequest))
