@@ -30,24 +30,14 @@ import play.api.test.Helpers._
 import play.api.test.{FakeRequest, Helpers}
 import play.api.Configuration
 import play.api.libs.json.{JsObject, Json}
-import play.api.mvc.Result
+import play.api.mvc.{BodyParsers, Result}
 import uk.gov.hmrc.http.HeaderCarrier
 import uk.gov.hmrc.pdsauthcheckerapi.base.TestCommonGenerators
-import uk.gov.hmrc.pdsauthcheckerapi.models.{
-  AuthorisedBadRequestCode,
-  Eori,
-  EoriValidationError,
-  PdsAuthRequest,
-  PdsAuthResponse,
-  UnvalidatedPdsAuthRequest,
-  ValidationErrorResponse
-}
-import uk.gov.hmrc.pdsauthcheckerapi.services.{
-  ErrorConverterService,
-  PdsService,
-  ValidationService
-}
+import uk.gov.hmrc.pdsauthcheckerapi.models.{AuthorisedBadRequestCode, Eori, EoriValidationError, PdsAuthRequest, PdsAuthResponse, UnvalidatedPdsAuthRequest, ValidationErrorResponse}
+import uk.gov.hmrc.pdsauthcheckerapi.services.{ErrorConverterService, PdsService, ValidationService}
 import cats.syntax.validated._
+import uk.gov.hmrc.pdsauthcheckerapi.actions.AuthTypeAction
+
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
@@ -58,16 +48,18 @@ class AuthorisationControllerSpec
     with ScalaFutures {
 
   val config: Configuration = Configuration("auth.supportedTypes" -> "UKIM")
+  val authTypeAction = new AuthTypeAction(new BodyParsers.Default(Helpers.stubControllerComponents().parsers), config)
+
   val mockPdsService: PdsService = mock[PdsService]
   val mockValidationService: ValidationService = mock[ValidationService]
   val mockErrorConverterService: ErrorConverterService =
     mock[ErrorConverterService]
   val controller = new AuthorisationController(
     Helpers.stubControllerComponents(),
-    config,
     mockPdsService,
     mockValidationService,
-    mockErrorConverterService
+    mockErrorConverterService,
+    authTypeAction,
   )
   def createValidationError(validationError: JsObject): JsObject = {
     Json.obj(
