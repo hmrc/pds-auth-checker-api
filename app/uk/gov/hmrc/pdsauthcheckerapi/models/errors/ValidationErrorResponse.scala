@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.pdsauthcheckerapi.models
+package uk.gov.hmrc.pdsauthcheckerapi.models.errors
 
 import play.api.libs.json.{Json, Writes}
 

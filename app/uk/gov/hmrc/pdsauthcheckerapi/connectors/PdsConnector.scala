@@ -17,16 +17,21 @@
 package uk.gov.hmrc.pdsauthcheckerapi.connectors
 
 import play.api.Logging
-import play.api.http.Status.OK
+import play.api.http.Status.{FORBIDDEN, OK}
 
 import javax.inject.{Inject, Singleton}
-import uk.gov.hmrc.http.{HeaderCarrier, HttpResponse, StringContextOps}
+import uk.gov.hmrc.http.{
+  HeaderCarrier,
+  HttpResponse,
+  StringContextOps
+}
 import uk.gov.hmrc.http.HttpReads.Implicits._
 
 import scala.concurrent.{ExecutionContext, Future}
 import play.api.libs.json._
 import uk.gov.hmrc.http.client.HttpClientV2
 import uk.gov.hmrc.pdsauthcheckerapi.config.AppConfig
+import uk.gov.hmrc.pdsauthcheckerapi.models.errors.PdsErrorDetail
 import uk.gov.hmrc.pdsauthcheckerapi.models.{PdsAuthRequest, PdsAuthResponse}
 
 @Singleton
@@ -35,24 +40,31 @@ class PdsConnector @Inject() (client: HttpClientV2, appConfig: AppConfig)(
 ) extends Logging {
   private val pdsEndpoint =
     appConfig.eisUrl.addPathParts("validatecustomsauth")
+  private val authToken = appConfig.authToken
 
   def validateCustoms(
       pdsAuthRequest: PdsAuthRequest
-  )(implicit hc: HeaderCarrier): Future[PdsAuthResponse] =
+  )(implicit
+      hc: HeaderCarrier
+  ): Future[Either[PdsErrorDetail, PdsAuthResponse]] =
     client
       .post(url"$pdsEndpoint")
       .withBody(Json.toJson(pdsAuthRequest))
+      .setHeader("Authorization" -> "Bearer not real")
       .execute[HttpResponse]
       .flatMap { response =>
         response.status match {
           case OK =>
-            Future.successful(response.json.as[PdsAuthResponse])
+            Future.successful(Right(response.json.as[PdsAuthResponse]))
+          case FORBIDDEN =>
+            Future.successful(Left(response.json.as[PdsErrorDetail]))
           case _ =>
             logger.error(
               s"Did not receive OK from PDS - instead got ${response.status} and ${response.body}"
             )
-            Future.failed(new RuntimeException(s"Unexpected status: ${response.status}"))
+            Future.failed(
+              new RuntimeException(s"Unexpected status: ${response.status}")
+            )
         }
       }
-
 }

@@ -17,11 +17,7 @@
 package uk.gov.hmrc.pdsauthcheckerapi.services
 
 import cats.data.NonEmptyList
-import uk.gov.hmrc.pdsauthcheckerapi.models.{
-  AuthorisedBadRequestCode,
-  ValidationError,
-  ValidationErrorResponse
-}
+import uk.gov.hmrc.pdsauthcheckerapi.models.errors.{AuthorisedBadRequestCode, ValidationError, ValidationErrorResponse}
 class ErrorConverterService {
   def convertValidationError(errors: NonEmptyList[ValidationError]): ValidationErrorResponse = {
         ValidationErrorResponse(

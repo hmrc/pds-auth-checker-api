@@ -14,23 +14,17 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.pdsauthcheckerapi.config
+package uk.gov.hmrc.pdsauthcheckerapi.models.errors
 
-import javax.inject.{Inject, Singleton}
-import play.api.Configuration
-import uk.gov.hmrc.pdsauthcheckerapi.config.UKIMSServicesConfig
-import io.lemonlabs.uri.Url
+import play.api.libs.json._
+import java.time.Instant
 
-@Singleton
-class AppConfig @Inject() (
-    config: Configuration,
-    servicesConfig: UKIMSServicesConfig
-) {
-
-  val appName: String = config.get[String]("appName")
-
-  val eisUrl = Url.parse(servicesConfig.baseUrl("eis"))
-
-  lazy val authToken: String = config.get[String]("authorisation.token")
-
+case class PdsErrorDetail(
+    timestamp: Instant,
+    errorCode: String,
+    errorMessage: String,
+    sourcePDSFaultDetails: String
+)
+object PdsErrorDetail {
+  implicit val format: OFormat[PdsErrorDetail] = Json.format[PdsErrorDetail]
 }

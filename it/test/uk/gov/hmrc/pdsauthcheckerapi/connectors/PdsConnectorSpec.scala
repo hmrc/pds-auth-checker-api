@@ -25,12 +25,14 @@ import uk.gov.hmrc.http.HeaderCarrier
 import uk.gov.hmrc.http.test.{HttpClientV2Support, WireMockSupport}
 import uk.gov.hmrc.pdsauthcheckerapi.base.TestCommonGenerators
 import uk.gov.hmrc.pdsauthcheckerapi.config.{AppConfig, UKIMSServicesConfig}
+import uk.gov.hmrc.pdsauthcheckerapi.models.errors.PdsErrorDetail
 import uk.gov.hmrc.pdsauthcheckerapi.models.{
   Eori,
   PdsAuthResponse,
   PdsAuthResponseResult
 }
-import java.time.LocalDate
+
+import java.time.{Instant, LocalDate}
 import scala.concurrent.ExecutionContext.Implicits.global
 
 class PdsConnectorSpec
@@ -44,6 +46,7 @@ class PdsConnectorSpec
 
   private val configuration = Configuration(
     "appName" -> "pds-auth-checker-api",
+    "authorisation.token" -> "Bearer mockBearerToken",
     "microservice.services.eis.host" -> wireMockHost,
     "microservice.services.eis.port" -> wireMockPort
   )
@@ -88,12 +91,39 @@ class PdsConnectorSpec
           .validateCustoms(authorisationRequestGen.sample.get)(HeaderCarrier())
           .futureValue
 
-        response shouldBe PdsAuthResponse(
-          LocalDate.of(2021, 1, 1),
-          "UKIM",
-          Seq(
-            PdsAuthResponseResult(Eori("GB120000000999"), valid = false, 1),
-            PdsAuthResponseResult(Eori("GB120001000919"), valid = true, 0)
+        response shouldBe Right(
+          PdsAuthResponse(
+            LocalDate.of(2021, 1, 1),
+            "UKIM",
+            Seq(
+              PdsAuthResponseResult(Eori("GB120000000999"), valid = false, 1),
+              PdsAuthResponseResult(Eori("GB120001000919"), valid = true, 0)
+            )
+          )
+        )
+      }
+      "return an appropriate error when authToken is rejected" in {
+        givenPdsReturns(
+          403,
+          pdsPath,
+          s"""{
+             |  "timestamp": "2024-07-09T04:43:41.051892Z",
+             |  "errorCode": "403",
+             |  "errorMessage": "Authorisation not found",
+             |  "sourcePDSFaultDetails": "uri=/pds/cnit/validatecustomsauth/v1"
+             |}""".stripMargin
+        )
+
+        val response = pdsConnector
+          .validateCustoms(authorisationRequestGen.sample.get)(HeaderCarrier())
+          .futureValue
+
+        response shouldBe Left(
+          PdsErrorDetail(
+            Instant.parse("2024-07-09T04:43:41.051892Z"),
+            "403",
+            "Authorisation not found",
+            "uri=/pds/cnit/validatecustomsauth/v1"
           )
         )
       }
