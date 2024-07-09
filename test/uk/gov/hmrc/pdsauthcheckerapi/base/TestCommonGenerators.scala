@@ -18,9 +18,7 @@ package uk.gov.hmrc.pdsauthcheckerapi.base
 
 import org.scalacheck.Gen
 import uk.gov.hmrc.pdsauthcheckerapi.models.{Eori, PdsAuthRequest, PdsAuthResponse, PdsAuthResponseResult}
-import play.api.libs.json.{Json, JsValue}
 import java.time.LocalDate
-import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 
 trait TestCommonGenerators {
@@ -41,45 +39,18 @@ trait TestCommonGenerators {
     authType = "UKIM"
   } yield PdsAuthRequest(date, authType, eoris)
 
-  lazy val authorisationResponseResultGen: Gen[Seq[PdsAuthResponseResult]] = authorisationRequestGen.flatMap { pdsAuthRequest =>
-    pdsAuthRequest.eoris.map { eori =>
-      PdsAuthResponseResult(eori, valid = true, 0)
+  def authorisationResponseResultGen(eori: Eori): Gen[PdsAuthResponseResult] = {
+    val isValid = Gen.oneOf(true, false).sample.get
+    val code = if (isValid) 0 else Gen.oneOf(1, 2).sample.get
+    PdsAuthResponseResult(eori, isValid, code)
+  }
+
+  def authorisationResponseResultsGen(eoris: Seq[Eori]): Gen[Seq[PdsAuthResponseResult]] =  {
+    eoris.map { eori =>
+      authorisationResponseResultGen(eori).sample.get
     }
   }
 
   def authorisationResponseGen(authRequest: PdsAuthRequest): Gen[PdsAuthResponse] =
-    PdsAuthResponse(authRequest.validityDate.getOrElse(LocalDate.now()), authRequest.authType, authRequest.eoris.map(eori => PdsAuthResponseResult(eori, valid = true, 0)))
-
-  case class GeneratedTestData(responseBody: JsValue, authRequest: PdsAuthRequest)
-
-  var lastGeneratedPdsResponse: JsValue = _
-
-  def generateAndStorePdsResponseBody(date: Option[LocalDate] = None, authType: String = "UKIM"): GeneratedTestData = {
-    val numEoris = Gen.chooseNum(1, 3000).sample.get
-    val eoris = (1 to numEoris).map(_ => eoriGen.sample.get)
-
-    val results = eoris.map { eori =>
-      val isValid = Gen.oneOf(true, false).sample.get
-      val code = if (isValid) 0 else 1
-      Json.obj(
-        "eori" -> eori.value,
-        "valid" -> isValid,
-        "code" -> code
-      )
-    }
-
-    val processingDate = date.getOrElse(LocalDate.now())
-    val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
-
-    val responseBody = Json.obj(
-      "processingDate" -> processingDate.format(formatter),
-      "authType" -> authType,
-      "results" -> results
-    )
-
-    val authRequest = PdsAuthRequest(Some(processingDate), authType, eoris)
-
-    lastGeneratedPdsResponse = responseBody
-    GeneratedTestData(responseBody, authRequest)
-  }
+    PdsAuthResponse(authRequest.validityDate.getOrElse(LocalDate.now()), authRequest.authType, authorisationResponseResultsGen(authRequest.eoris).sample.get)
 }

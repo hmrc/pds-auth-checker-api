@@ -21,14 +21,13 @@ import org.scalatest.wordspec.AnyWordSpec
 import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
 import org.scalatest.matchers.should.Matchers
 import play.api.Configuration
-import play.api.libs.json.{JsValue, Json}
+import play.api.libs.json.{Json}
 import uk.gov.hmrc.http.HeaderCarrier
 import uk.gov.hmrc.http.test.{HttpClientV2Support, WireMockSupport}
 import uk.gov.hmrc.pdsauthcheckerapi.base.TestCommonGenerators
 import uk.gov.hmrc.pdsauthcheckerapi.config.{AppConfig, UKIMSServicesConfig}
-import uk.gov.hmrc.pdsauthcheckerapi.models.{Eori, PdsAuthResponse, PdsAuthResponseResult}
+import uk.gov.hmrc.pdsauthcheckerapi.models.{PdsAuthResponse, PdsAuthResponseResult}
 
-import java.time.LocalDate
 import scala.concurrent.ExecutionContext.Implicits.global
 
 class PdsConnectorSpec
@@ -61,31 +60,24 @@ class PdsConnectorSpec
   "PdsConnector" when {
     "an authorisation request is made" should {
       "return a successful response with body for a valid response to PDS" in {
-        val generatedData = generateAndStorePdsResponseBody()
+        val request = authorisationRequestGen.sample.get
 
-        //println(s"Generated Response Body:\n${Json.prettyPrint(generatedData.responseBody)}")
-        //println(s"Generated Auth Request:\n$generatedData.authRequest")
+        val responseData = authorisationResponseGen(request).sample.get
 
         givenPdsReturns(
           200,
           pdsPath,
-          generatedData.responseBody.toString()
+          Json.toJson(responseData).toString()
         )
 
         val response = pdsConnector
-          .validateCustoms(generatedData.authRequest)(HeaderCarrier())
+          .validateCustoms(request)(HeaderCarrier())
           .futureValue
 
         response shouldBe PdsAuthResponse(
-          LocalDate.parse((lastGeneratedPdsResponse \ "processingDate").as[String]),
-          (lastGeneratedPdsResponse \ "authType").as[String],
-          (lastGeneratedPdsResponse \ "results").as[Seq[JsValue]].map { result =>
-            PdsAuthResponseResult(
-              Eori((result \ "eori").as[String]),
-              (result \ "valid").as[Boolean],
-              (result \ "code").as[Int]
-            )
-          }
+          responseData.processingDate,
+          responseData.authType,
+          responseData.results
         )
       }
     }
