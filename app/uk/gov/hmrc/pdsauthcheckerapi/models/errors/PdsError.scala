@@ -16,8 +16,5 @@
 
 package uk.gov.hmrc.pdsauthcheckerapi.models.errors
 
-import play.api.libs.json.{Json, OFormat}
-
 sealed abstract class PdsError
-
 case class InvalidAuthTokenPdsError() extends PdsError

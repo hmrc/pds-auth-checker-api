@@ -70,8 +70,8 @@ class AuthorisationController @Inject() (
                     case Left(pdsError) =>
                       pdsError match {
                         case InvalidAuthTokenPdsError() =>
-                          InternalServerError
-                        case _ => InternalServerError
+                          internalServerErrorResponse
+                        case _ => internalServerErrorResponse
                       }
                   }
             )
@@ -82,6 +82,12 @@ class AuthorisationController @Inject() (
     Json.obj(
       "code" -> "INVALID_AUTHTYPE",
       "message" -> "Auth Type provided is not supported"
+    )
+  )
+  private val internalServerErrorResponse = InternalServerError(
+    Json.obj(
+      "code" -> "INTERNAL_SERVER_ERROR",
+      "message" -> "Unexpected internal issue"
     )
   )
 

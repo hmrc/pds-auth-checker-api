@@ -44,7 +44,7 @@ class PdsConnectorSpec
 
   private val configuration = Configuration(
     "appName" -> "pds-auth-checker-api",
-    "microservice.services.eis.token" -> "Bearer mockBearerToken",
+    "microservice.services.eis.authorisation.token" -> "Bearer mockBearerToken",
     "microservice.services.eis.host" -> wireMockHost,
     "microservice.services.eis.port" -> wireMockPort
   )

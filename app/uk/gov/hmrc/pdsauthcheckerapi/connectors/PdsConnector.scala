@@ -25,7 +25,6 @@ import uk.gov.hmrc.http.HttpReads.Implicits._
 
 import scala.concurrent.{ExecutionContext, Future}
 import play.api.libs.json._
-import play.api.mvc.Results.InternalServerError
 import uk.gov.hmrc.http.client.HttpClientV2
 import uk.gov.hmrc.pdsauthcheckerapi.config.AppConfig
 import uk.gov.hmrc.pdsauthcheckerapi.models.errors.{
