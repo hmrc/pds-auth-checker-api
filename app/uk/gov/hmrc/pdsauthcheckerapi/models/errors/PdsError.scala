@@ -18,3 +18,5 @@ package uk.gov.hmrc.pdsauthcheckerapi.models.errors
 
 sealed abstract class PdsError
 case class InvalidAuthTokenPdsError() extends PdsError
+
+case class ParseResponseFailure() extends PdsError

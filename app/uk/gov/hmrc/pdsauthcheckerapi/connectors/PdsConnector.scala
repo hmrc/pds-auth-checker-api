@@ -29,6 +29,7 @@ import uk.gov.hmrc.http.client.HttpClientV2
 import uk.gov.hmrc.pdsauthcheckerapi.config.AppConfig
 import uk.gov.hmrc.pdsauthcheckerapi.models.errors.{
   InvalidAuthTokenPdsError,
+  ParseResponseFailure,
   PdsError,
   PdsErrorDetail
 }
@@ -54,43 +55,10 @@ class PdsConnector @Inject() (client: HttpClientV2, appConfig: AppConfig)(
       .execute[HttpResponse]
       .flatMap { response =>
         response.status match {
-          case OK =>
-            response.json.validate[PdsAuthResponse] match {
-              case JsSuccess(authResponse, _) =>
-                Future.successful(Right(authResponse))
-              case JsError(errors) =>
-                logger.error(
-                  s"Unable to validate successful response - with the following errors - $errors"
-                )
-                Future.failed(
-                  new RuntimeException(
-                    s"Unable to validate response: $errors"
-                  )
-                )
-            }
-          case FORBIDDEN =>
-            logger.error(
-              s"PDS has rejected bearer token with the following:  ${response.status} and ${response.body}"
-            )
-            response.json.validate[PdsErrorDetail] match {
-              case JsSuccess(errorDetail, _) =>
-                Future.successful(
-                  Left(
-                    InvalidAuthTokenPdsError()
-                  )
-                )
-              case JsError(errors) =>
-                logger.error(
-                  s"Unable to parse PDS error response: $errors"
-                )
-                Future.failed(
-                  new RuntimeException(
-                    s"Unable to validate response: $errors"
-                  )
-                )
-            }
+          case OK        => handleResponse(response)
+          case FORBIDDEN => handleForbidden(response)
           case _ =>
-            logger.error(
+            logger.warn(
               s"Did not receive OK from PDS - instead got ${response.status} and ${response.body}"
             )
             Future.failed(
@@ -98,4 +66,32 @@ class PdsConnector @Inject() (client: HttpClientV2, appConfig: AppConfig)(
             )
         }
       }
+
+  private def handleResponse(
+      response: HttpResponse
+  ): Future[Either[PdsError, PdsAuthResponse]] = {
+    response.json.validate[PdsAuthResponse] match {
+      case JsSuccess(result, _) => Future.successful(Right(result))
+      case JsError(errors) =>
+        logger.warn(
+          s"Unable to validate successful response - with the following errors - $errors"
+        )
+        Future.successful(Left(ParseResponseFailure()))
+    }
+  }
+
+  private def handleForbidden(
+      response: HttpResponse
+  ): Future[Either[PdsError, PdsAuthResponse]] = {
+    logger.error(
+      s"PDS has rejected bearer token with the following: ${response.status} and ${response.body}"
+    )
+    response.json.validate[PdsErrorDetail] match {
+      case JsSuccess(_, _) =>
+        Future.successful(Left(InvalidAuthTokenPdsError()))
+      case JsError(errors) =>
+        logger.warn(s"Unable to parse PDS error response: $errors")
+        Future.successful(Left(ParseResponseFailure()))
+    }
+  }
 }

@@ -60,10 +60,10 @@ class AuthorisationControllerSpec
     mock[ErrorConverterService]
   val controller = new AuthorisationController(
     Helpers.stubControllerComponents(),
-    config,
     mockPdsService,
     mockValidationService,
-    mockErrorConverterService
+    mockErrorConverterService,
+    authTypeAction
   )
   def createValidationError(validationError: JsObject): JsObject = {
     Json.obj(
