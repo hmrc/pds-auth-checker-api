@@ -20,6 +20,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
 import org.scalatest.matchers.should.Matchers
 import play.api.Configuration
+import play.api.libs.json.{Json}
 import uk.gov.hmrc.http.HeaderCarrier
 import play.api.libs.json.Json
 import uk.gov.hmrc.http.test.{HttpClientV2Support, WireMockSupport}
@@ -62,7 +63,6 @@ class PdsConnectorSpec
       "return a successful response with body for a valid response to PDS" in {
         val request = authorisationRequestGen.sample.get
         val responseData = authorisationResponseGen(request).sample.get
-
         givenPdsReturns(
           200,
           pdsPath,
@@ -91,10 +91,11 @@ class PdsConnectorSpec
              |  "errorMessage": "Authorisation not found",
              |  "sourcePDSFaultDetails": "uri=/pds/cnit/validatecustomsauth/v1"
              |}""".stripMargin
+
         )
 
         val response = pdsConnector
-          .validateCustoms(authorisationRequestGen.sample.get)(HeaderCarrier())
+          .validateCustoms(request)(HeaderCarrier())
           .futureValue
 
         response shouldBe Left(

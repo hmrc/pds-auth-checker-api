@@ -52,7 +52,7 @@ trait TestCommonGenerators {
     val code = if (isValid) 0 else Gen.oneOf(1, 2).sample.get
     PdsAuthResponseResult(eori, isValid, code)
   }
-
+  
   def authorisationResponseResultsGen(
       eoris: Seq[Eori]
   ): Gen[Seq[PdsAuthResponseResult]] = {
