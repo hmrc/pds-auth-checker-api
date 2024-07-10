@@ -21,6 +21,7 @@ import javax.inject._
 import play.api.libs.json.Json
 import play.api.mvc.{Action, ControllerComponents, Request}
 import uk.gov.hmrc.pdsauthcheckerapi.models.UnvalidatedPdsAuthRequest
+import uk.gov.hmrc.pdsauthcheckerapi.models.errors.InvalidAuthTokenPdsError
 import uk.gov.hmrc.pdsauthcheckerapi.services.{
   ErrorConverterService,
   PdsService,
@@ -66,7 +67,12 @@ class AuthorisationController @Inject() (
                   .map {
                     case Right(pdsAuthResponse) =>
                       Ok(Json.toJson(pdsAuthResponse))
-                    case Left(pdsError) => Forbidden(Json.toJson(pdsError))
+                    case Left(pdsError) =>
+                      pdsError match {
+                        case InvalidAuthTokenPdsError() =>
+                          InternalServerError
+                        case _ => InternalServerError
+                      }
                   }
             )
         }

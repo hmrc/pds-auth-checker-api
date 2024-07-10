@@ -20,18 +20,19 @@ import play.api.Logging
 import play.api.http.Status.{FORBIDDEN, OK}
 
 import javax.inject.{Inject, Singleton}
-import uk.gov.hmrc.http.{
-  HeaderCarrier,
-  HttpResponse,
-  StringContextOps
-}
+import uk.gov.hmrc.http.{HeaderCarrier, HttpResponse, StringContextOps}
 import uk.gov.hmrc.http.HttpReads.Implicits._
 
 import scala.concurrent.{ExecutionContext, Future}
 import play.api.libs.json._
+import play.api.mvc.Results.InternalServerError
 import uk.gov.hmrc.http.client.HttpClientV2
 import uk.gov.hmrc.pdsauthcheckerapi.config.AppConfig
-import uk.gov.hmrc.pdsauthcheckerapi.models.errors.PdsErrorDetail
+import uk.gov.hmrc.pdsauthcheckerapi.models.errors.{
+  InvalidAuthTokenPdsError,
+  PdsError,
+  PdsErrorDetail
+}
 import uk.gov.hmrc.pdsauthcheckerapi.models.{PdsAuthRequest, PdsAuthResponse}
 
 @Singleton
@@ -46,18 +47,49 @@ class PdsConnector @Inject() (client: HttpClientV2, appConfig: AppConfig)(
       pdsAuthRequest: PdsAuthRequest
   )(implicit
       hc: HeaderCarrier
-  ): Future[Either[PdsErrorDetail, PdsAuthResponse]] =
+  ): Future[Either[PdsError, PdsAuthResponse]] =
     client
       .post(url"$pdsEndpoint")
       .withBody(Json.toJson(pdsAuthRequest))
-      .setHeader("Authorization" -> "Bearer not real")
+      .setHeader("Authorization" -> authToken)
       .execute[HttpResponse]
       .flatMap { response =>
         response.status match {
           case OK =>
-            Future.successful(Right(response.json.as[PdsAuthResponse]))
+            response.json.validate[PdsAuthResponse] match {
+              case JsSuccess(authResponse, _) =>
+                Future.successful(Right(authResponse))
+              case JsError(errors) =>
+                logger.error(
+                  s"Unable to validate successful response - with the following errors - $errors"
+                )
+                Future.failed(
+                  new RuntimeException(
+                    s"Unable to validate response: $errors"
+                  )
+                )
+            }
           case FORBIDDEN =>
-            Future.successful(Left(response.json.as[PdsErrorDetail]))
+            logger.error(
+              s"PDS has rejected bearer token with the following:  ${response.status} and ${response.body}"
+            )
+            response.json.validate[PdsErrorDetail] match {
+              case JsSuccess(errorDetail, _) =>
+                Future.successful(
+                  Left(
+                    InvalidAuthTokenPdsError()
+                  )
+                )
+              case JsError(errors) =>
+                logger.error(
+                  s"Unable to parse PDS error response: $errors"
+                )
+                Future.failed(
+                  new RuntimeException(
+                    s"Unable to validate response: $errors"
+                  )
+                )
+            }
           case _ =>
             logger.error(
               s"Did not receive OK from PDS - instead got ${response.status} and ${response.body}"

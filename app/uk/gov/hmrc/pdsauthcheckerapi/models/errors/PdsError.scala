@@ -14,22 +14,10 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.pdsauthcheckerapi.services
+package uk.gov.hmrc.pdsauthcheckerapi.models.errors
 
-import uk.gov.hmrc.http.HeaderCarrier
-import uk.gov.hmrc.pdsauthcheckerapi.connectors.PdsConnector
-import uk.gov.hmrc.pdsauthcheckerapi.models.errors.PdsError
-import uk.gov.hmrc.pdsauthcheckerapi.models.{PdsAuthRequest, PdsAuthResponse}
+import play.api.libs.json.{Json, OFormat}
 
-import javax.inject.Inject
-import scala.concurrent.Future
+sealed abstract class PdsError
 
-class PdsService @Inject() (pdsConnector: PdsConnector) {
-
-  def getValidatedCustoms(
-      pdsAuthRequest: PdsAuthRequest
-  )(implicit
-      hc: HeaderCarrier
-  ): Future[Either[PdsError, PdsAuthResponse]] =
-    pdsConnector.validateCustoms(pdsAuthRequest)
-}
+case class InvalidAuthTokenPdsError() extends PdsError

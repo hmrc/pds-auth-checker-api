@@ -15,7 +15,6 @@
  */
 
 package uk.gov.hmrc.pdsauthcheckerapi.connectors
-
 import com.github.tomakehurst.wiremock.client.WireMock._
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
@@ -25,14 +24,13 @@ import uk.gov.hmrc.http.HeaderCarrier
 import uk.gov.hmrc.http.test.{HttpClientV2Support, WireMockSupport}
 import uk.gov.hmrc.pdsauthcheckerapi.base.TestCommonGenerators
 import uk.gov.hmrc.pdsauthcheckerapi.config.{AppConfig, UKIMSServicesConfig}
-import uk.gov.hmrc.pdsauthcheckerapi.models.errors.PdsErrorDetail
+import uk.gov.hmrc.pdsauthcheckerapi.models.errors.InvalidAuthTokenPdsError
 import uk.gov.hmrc.pdsauthcheckerapi.models.{
   Eori,
   PdsAuthResponse,
   PdsAuthResponseResult
 }
-
-import java.time.{Instant, LocalDate}
+import java.time.LocalDate
 import scala.concurrent.ExecutionContext.Implicits.global
 
 class PdsConnectorSpec
@@ -46,7 +44,7 @@ class PdsConnectorSpec
 
   private val configuration = Configuration(
     "appName" -> "pds-auth-checker-api",
-    "authorisation.token" -> "Bearer mockBearerToken",
+    "microservice.services.eis.token" -> "Bearer mockBearerToken",
     "microservice.services.eis.host" -> wireMockHost,
     "microservice.services.eis.port" -> wireMockPort
   )
@@ -119,12 +117,7 @@ class PdsConnectorSpec
           .futureValue
 
         response shouldBe Left(
-          PdsErrorDetail(
-            Instant.parse("2024-07-09T04:43:41.051892Z"),
-            "403",
-            "Authorisation not found",
-            "uri=/pds/cnit/validatecustomsauth/v1"
-          )
+          InvalidAuthTokenPdsError()
         )
       }
     }
