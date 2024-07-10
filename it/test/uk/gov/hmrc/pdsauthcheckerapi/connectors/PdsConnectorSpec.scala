@@ -21,16 +21,12 @@ import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
 import org.scalatest.matchers.should.Matchers
 import play.api.Configuration
 import uk.gov.hmrc.http.HeaderCarrier
+import play.api.libs.json.Json
 import uk.gov.hmrc.http.test.{HttpClientV2Support, WireMockSupport}
 import uk.gov.hmrc.pdsauthcheckerapi.base.TestCommonGenerators
 import uk.gov.hmrc.pdsauthcheckerapi.config.{AppConfig, UKIMSServicesConfig}
 import uk.gov.hmrc.pdsauthcheckerapi.models.errors.InvalidAuthTokenPdsError
-import uk.gov.hmrc.pdsauthcheckerapi.models.{
-  Eori,
-  PdsAuthResponse,
-  PdsAuthResponseResult
-}
-import java.time.LocalDate
+import uk.gov.hmrc.pdsauthcheckerapi.models.PdsAuthResponse
 import scala.concurrent.ExecutionContext.Implicits.global
 
 class PdsConnectorSpec
@@ -64,39 +60,24 @@ class PdsConnectorSpec
   "PdsConnector" when {
     "an authorisation request is made" should {
       "return a successful response with body for a valid response to PDS" in {
+        val request = authorisationRequestGen.sample.get
+        val responseData = authorisationResponseGen(request).sample.get
+
         givenPdsReturns(
           200,
           pdsPath,
-          s"""{
-             |  "processingDate": "2021-01-01",
-             |  "authType": "UKIM",
-             |  "results": [
-             |    {
-             |      "eori": "GB120000000999",
-             |      "valid": false,
-             |      "code": 1
-             |    },
-             |    {
-             |      "eori": "GB120001000919",
-             |      "valid": true,
-             |      "code": 0
-             |    }
-             |  ]
-             |}""".stripMargin
+          Json.toJson(responseData).toString()
         )
 
         val response = pdsConnector
-          .validateCustoms(authorisationRequestGen.sample.get)(HeaderCarrier())
+          .validateCustoms(request)(HeaderCarrier())
           .futureValue
 
         response shouldBe Right(
           PdsAuthResponse(
-            LocalDate.of(2021, 1, 1),
-            "UKIM",
-            Seq(
-              PdsAuthResponseResult(Eori("GB120000000999"), valid = false, 1),
-              PdsAuthResponseResult(Eori("GB120001000919"), valid = true, 0)
-            )
+            responseData.processingDate,
+            responseData.authType,
+            responseData.results
           )
         )
       }

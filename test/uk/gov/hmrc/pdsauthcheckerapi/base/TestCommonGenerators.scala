@@ -17,10 +17,15 @@
 package uk.gov.hmrc.pdsauthcheckerapi.base
 
 import org.scalacheck.Gen
-import uk.gov.hmrc.pdsauthcheckerapi.models.{Eori, PdsAuthRequest, PdsAuthResponse, PdsAuthResponseResult}
-
+import uk.gov.hmrc.pdsauthcheckerapi.models.{
+  Eori,
+  PdsAuthRequest,
+  PdsAuthResponse,
+  PdsAuthResponseResult
+}
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
+
 trait TestCommonGenerators {
   lazy val validEoriPrefix = Gen.oneOf("GB", "XI")
   lazy val validEoriSuffix = Gen.listOfN(12, Gen.numChar).map(_.mkString)
@@ -29,21 +34,39 @@ trait TestCommonGenerators {
     prefix <- validEoriPrefix
     suffix <- validEoriSuffix
   } yield Eori(prefix + suffix)
-  lazy val eorisGen: Gen[Seq[Eori]] = Gen.chooseNum(1, 3000).flatMap(n => Gen.listOfN(n, eoriGen))
+
+  lazy val eorisGen: Gen[Seq[Eori]] =
+    Gen.chooseNum(1, 3000).flatMap(n => Gen.listOfN(n, eoriGen))
 
   lazy val authorisationRequestGen: Gen[PdsAuthRequest] = for {
     eoris <- eorisGen
     now = LocalDate.now()
-    date <- Gen.option(Gen.choose(now.minus(1, ChronoUnit.YEARS), now.plus(3, ChronoUnit.MONTHS)))
+    date <- Gen.option(
+      Gen.choose(now.minus(1, ChronoUnit.YEARS), now.plus(3, ChronoUnit.MONTHS))
+    )
     authType = "UKIM"
-  } yield PdsAuthRequest(date,authType, eoris)
+  } yield PdsAuthRequest(date, authType, eoris)
 
-  lazy val authorisationResponseResultGen: Gen[Seq[PdsAuthResponseResult]] = authorisationRequestGen.flatMap{ pdsAuthRequest =>
-    pdsAuthRequest.eoris.map{ eori =>
-      PdsAuthResponseResult(eori, valid = true, 0)
+  def authorisationResponseResultGen(eori: Eori): Gen[PdsAuthResponseResult] = {
+    val isValid = Gen.oneOf(true, false).sample.get
+    val code = if (isValid) 0 else Gen.oneOf(1, 2).sample.get
+    PdsAuthResponseResult(eori, isValid, code)
+  }
+
+  def authorisationResponseResultsGen(
+      eoris: Seq[Eori]
+  ): Gen[Seq[PdsAuthResponseResult]] = {
+    eoris.map { eori =>
+      authorisationResponseResultGen(eori).sample.get
     }
   }
 
-  def authorisationResponseGen(authRequest: PdsAuthRequest): Gen[PdsAuthResponse] =
-    PdsAuthResponse(authRequest.validityDate.getOrElse(LocalDate.now()), authRequest.authType, authRequest.eoris.map(eori => PdsAuthResponseResult(eori, valid = true, 0)))
+  def authorisationResponseGen(
+      authRequest: PdsAuthRequest
+  ): Gen[PdsAuthResponse] =
+    PdsAuthResponse(
+      authRequest.validityDate.getOrElse(LocalDate.now()),
+      authRequest.authType,
+      authorisationResponseResultsGen(authRequest.eoris).sample.get
+    )
 }
