@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.pdsauthcheckerapi.models
+package uk.gov.hmrc.pdsauthcheckerapi.models.errors
 
-import play.api.libs.json._
 import play.api.libs.functional.syntax._
+import play.api.libs.json._
 
 sealed abstract class ValidationError
 

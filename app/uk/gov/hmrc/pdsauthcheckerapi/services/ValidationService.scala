@@ -20,13 +20,11 @@ import cats.data.{NonEmptyList, ValidatedNel}
 import cats.syntax.apply._
 import cats.syntax.traverse._
 import cats.syntax.validated._
+import uk.gov.hmrc.pdsauthcheckerapi.models.errors.{DateValidationError, EoriValidationError, ValidationError}
 import uk.gov.hmrc.pdsauthcheckerapi.models.{
-  DateValidationError,
   Eori,
-  EoriValidationError,
   PdsAuthRequest,
-  UnvalidatedPdsAuthRequest,
-  ValidationError
+  UnvalidatedPdsAuthRequest
 }
 import uk.gov.hmrc.pdsauthcheckerapi.services.ValidationService.{
   validateDate,

@@ -15,7 +15,6 @@
  */
 
 package uk.gov.hmrc.pdsauthcheckerapi.connectors
-
 import com.github.tomakehurst.wiremock.client.WireMock._
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
@@ -23,11 +22,12 @@ import org.scalatest.matchers.should.Matchers
 import play.api.Configuration
 import play.api.libs.json.{Json}
 import uk.gov.hmrc.http.HeaderCarrier
+import play.api.libs.json.Json
 import uk.gov.hmrc.http.test.{HttpClientV2Support, WireMockSupport}
 import uk.gov.hmrc.pdsauthcheckerapi.base.TestCommonGenerators
 import uk.gov.hmrc.pdsauthcheckerapi.config.{AppConfig, UKIMSServicesConfig}
-import uk.gov.hmrc.pdsauthcheckerapi.models.{PdsAuthResponse, PdsAuthResponseResult}
-
+import uk.gov.hmrc.pdsauthcheckerapi.models.errors.InvalidAuthTokenPdsError
+import uk.gov.hmrc.pdsauthcheckerapi.models.PdsAuthResponse
 import scala.concurrent.ExecutionContext.Implicits.global
 
 class PdsConnectorSpec
@@ -41,6 +41,7 @@ class PdsConnectorSpec
 
   private val configuration = Configuration(
     "appName" -> "pds-auth-checker-api",
+    "microservice.services.eis.authorisation.token" -> "Bearer mockBearerToken",
     "microservice.services.eis.host" -> wireMockHost,
     "microservice.services.eis.port" -> wireMockPort
   )
@@ -61,9 +62,7 @@ class PdsConnectorSpec
     "an authorisation request is made" should {
       "return a successful response with body for a valid response to PDS" in {
         val request = authorisationRequestGen.sample.get
-
         val responseData = authorisationResponseGen(request).sample.get
-
         givenPdsReturns(
           200,
           pdsPath,
@@ -74,10 +73,33 @@ class PdsConnectorSpec
           .validateCustoms(request)(HeaderCarrier())
           .futureValue
 
-        response shouldBe PdsAuthResponse(
-          responseData.processingDate,
-          responseData.authType,
-          responseData.results
+        response shouldBe Right(
+          PdsAuthResponse(
+            responseData.processingDate,
+            responseData.authType,
+            responseData.results
+          )
+        )
+      }
+      "return an appropriate error when authToken is rejected" in {
+        givenPdsReturns(
+          403,
+          pdsPath,
+          s"""{
+             |  "timestamp": "2024-07-09T04:43:41.051892Z",
+             |  "errorCode": "403",
+             |  "errorMessage": "Authorisation not found",
+             |  "sourcePDSFaultDetails": "uri=/pds/cnit/validatecustomsauth/v1"
+             |}""".stripMargin
+
+        )
+
+        val response = pdsConnector
+          .validateCustoms(request)(HeaderCarrier())
+          .futureValue
+
+        response shouldBe Left(
+          InvalidAuthTokenPdsError()
         )
       }
     }

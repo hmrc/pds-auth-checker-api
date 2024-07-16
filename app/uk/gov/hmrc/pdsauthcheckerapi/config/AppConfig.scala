@@ -30,4 +30,8 @@ class AppConfig @Inject() (
   val appName: String = config.get[String]("appName")
 
   val eisUrl = Url.parse(servicesConfig.baseUrl("eis"))
+
+  lazy val authToken: String =
+    config.get[String]("microservice.services.eis.authorisation.token")
+
 }

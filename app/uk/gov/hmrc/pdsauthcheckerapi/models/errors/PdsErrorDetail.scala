@@ -14,16 +14,17 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.pdsauthcheckerapi.services
+package uk.gov.hmrc.pdsauthcheckerapi.models.errors
 
-import cats.data.NonEmptyList
-import uk.gov.hmrc.pdsauthcheckerapi.models.errors.{AuthorisedBadRequestCode, ValidationError, ValidationErrorResponse}
-class ErrorConverterService {
-  def convertValidationError(errors: NonEmptyList[ValidationError]): ValidationErrorResponse = {
-        ValidationErrorResponse(
-          AuthorisedBadRequestCode.InvalidFormat,
-          "Input format for request data",
-          errors.toList
-    )
-  }
+import play.api.libs.json._
+import java.time.Instant
+
+case class PdsErrorDetail(
+    timestamp: Instant,
+    errorCode: String,
+    errorMessage: String,
+    sourcePDSFaultDetails: String
+)
+object PdsErrorDetail {
+  implicit val format: OFormat[PdsErrorDetail] = Json.format[PdsErrorDetail]
 }

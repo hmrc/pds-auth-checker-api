@@ -15,20 +15,23 @@
  */
 
 package uk.gov.hmrc.pdsauthcheckerapi.controllers
-import play.api.Configuration
-
 
 import javax.inject._
 import play.api.libs.json.Json
 import play.api.mvc.{Action, ControllerComponents, Request}
+import uk.gov.hmrc.pdsauthcheckerapi.actions.AuthTypeAction
 import uk.gov.hmrc.pdsauthcheckerapi.models.UnvalidatedPdsAuthRequest
+import uk.gov.hmrc.pdsauthcheckerapi.models.errors.{
+  InvalidAuthTokenPdsError,
+  ParseResponseFailure
+}
 import uk.gov.hmrc.pdsauthcheckerapi.services.{
   ErrorConverterService,
   PdsService,
   ValidationService
 }
 import uk.gov.hmrc.play.bootstrap.backend.controller.BackendController
-import uk.gov.hmrc.pdsauthcheckerapi.actions.AuthTypeAction
+
 import scala.concurrent.{ExecutionContext, Future}
 
 @Singleton
@@ -37,7 +40,7 @@ class AuthorisationController @Inject() (
     pdsService: PdsService,
     validationService: ValidationService,
     errorConverterService: ErrorConverterService,
-    authTypeAction: AuthTypeAction,
+    authTypeAction: AuthTypeAction
 )(implicit ec: ExecutionContext)
     extends BackendController(cc) {
 
@@ -61,10 +64,25 @@ class AuthorisationController @Inject() (
                 .getValidatedCustoms(
                   validatedPdsRequest
                 )
-                .map { pdsAuthResponse =>
-                  Ok(Json.toJson(pdsAuthResponse))
+                .map {
+                  case Right(pdsAuthResponse) =>
+                    Ok(Json.toJson(pdsAuthResponse))
+                  case Left(pdsError) =>
+                    pdsError match {
+                      case InvalidAuthTokenPdsError() =>
+                        internalServerErrorResponse
+                      case ParseResponseFailure() =>
+                        internalServerErrorResponse
+                      case _ => internalServerErrorResponse
+                    }
                 }
           )
     }
-}
 
+  private val internalServerErrorResponse = InternalServerError(
+    Json.obj(
+      "code" -> "INTERNAL_SERVER_ERROR",
+      "message" -> "Unexpected internal issue"
+    )
+  )
+}

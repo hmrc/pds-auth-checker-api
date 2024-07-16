@@ -14,16 +14,9 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.pdsauthcheckerapi.services
+package uk.gov.hmrc.pdsauthcheckerapi.models.errors
 
-import cats.data.NonEmptyList
-import uk.gov.hmrc.pdsauthcheckerapi.models.errors.{AuthorisedBadRequestCode, ValidationError, ValidationErrorResponse}
-class ErrorConverterService {
-  def convertValidationError(errors: NonEmptyList[ValidationError]): ValidationErrorResponse = {
-        ValidationErrorResponse(
-          AuthorisedBadRequestCode.InvalidFormat,
-          "Input format for request data",
-          errors.toList
-    )
-  }
-}
+sealed abstract class PdsError
+case class InvalidAuthTokenPdsError() extends PdsError
+
+case class ParseResponseFailure() extends PdsError

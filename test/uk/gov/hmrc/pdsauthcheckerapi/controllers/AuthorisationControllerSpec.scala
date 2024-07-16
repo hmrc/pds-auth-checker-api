@@ -33,11 +33,15 @@ import play.api.libs.json.{JsObject, Json}
 import play.api.mvc.{BodyParsers, Result}
 import uk.gov.hmrc.http.HeaderCarrier
 import uk.gov.hmrc.pdsauthcheckerapi.base.TestCommonGenerators
-import uk.gov.hmrc.pdsauthcheckerapi.models.{AuthorisedBadRequestCode, Eori, EoriValidationError, PdsAuthRequest, PdsAuthResponse, UnvalidatedPdsAuthRequest, ValidationErrorResponse}
+import uk.gov.hmrc.pdsauthcheckerapi.models.{Eori, PdsAuthRequest, PdsAuthResponse, UnvalidatedPdsAuthRequest}
 import uk.gov.hmrc.pdsauthcheckerapi.services.{ErrorConverterService, PdsService, ValidationService}
 import cats.syntax.validated._
 import uk.gov.hmrc.pdsauthcheckerapi.actions.AuthTypeAction
-
+import uk.gov.hmrc.pdsauthcheckerapi.models.errors.{
+  AuthorisedBadRequestCode,
+  EoriValidationError,
+  ValidationErrorResponse
+}
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
@@ -59,7 +63,7 @@ class AuthorisationControllerSpec
     mockPdsService,
     mockValidationService,
     mockErrorConverterService,
-    authTypeAction,
+    authTypeAction
   )
   def createValidationError(validationError: JsObject): JsObject = {
     Json.obj(
@@ -95,7 +99,7 @@ class AuthorisationControllerSpec
               any[HeaderCarrier]
             )
         )
-          .thenReturn(Future.successful(serviceResponse))
+          .thenReturn(Future.successful(Right(serviceResponse)))
         val request =
           FakeRequest().withBody(authRequestToUnvalidatedRequest(authRequest))
         val result: Future[Result] = controller.authorise(request)

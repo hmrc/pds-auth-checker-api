@@ -18,12 +18,18 @@ package uk.gov.hmrc.pdsauthcheckerapi.services
 
 import uk.gov.hmrc.http.HeaderCarrier
 import uk.gov.hmrc.pdsauthcheckerapi.connectors.PdsConnector
+import uk.gov.hmrc.pdsauthcheckerapi.models.errors.PdsError
 import uk.gov.hmrc.pdsauthcheckerapi.models.{PdsAuthRequest, PdsAuthResponse}
+
 import javax.inject.Inject
 import scala.concurrent.Future
 
-class PdsService @Inject() (pdsConnector: PdsConnector){
+class PdsService @Inject() (pdsConnector: PdsConnector) {
 
-  def getValidatedCustoms(pdsAuthRequest: PdsAuthRequest)(implicit hc: HeaderCarrier): Future[PdsAuthResponse] =
+  def getValidatedCustoms(
+      pdsAuthRequest: PdsAuthRequest
+  )(implicit
+      hc: HeaderCarrier
+  ): Future[Either[PdsError, PdsAuthResponse]] =
     pdsConnector.validateCustoms(pdsAuthRequest)
 }
