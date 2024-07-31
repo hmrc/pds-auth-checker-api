@@ -36,11 +36,14 @@ import uk.gov.hmrc.pdsauthcheckerapi.models.errors.{
 import uk.gov.hmrc.pdsauthcheckerapi.models.{PdsAuthRequest, PdsAuthResponse}
 
 @Singleton
-class PdsConnector @Inject() (client: HttpClientV2, appConfig: AppConfig)(
-    implicit ec: ExecutionContext
+class PdsConnector @Inject() (
+    client: HttpClientV2,
+    appConfig: AppConfig
+)(implicit
+    ec: ExecutionContext
 ) extends Logging {
   private val pdsEndpoint =
-    appConfig.eisUrl.addPathParts("validatecustomsauth")
+    appConfig.eisBaseUrl.withPath(appConfig.eisUri)
   private val authToken = appConfig.authToken
 
   def validateCustoms(

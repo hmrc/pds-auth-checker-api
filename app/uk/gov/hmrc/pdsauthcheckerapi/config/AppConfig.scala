@@ -18,8 +18,7 @@ package uk.gov.hmrc.pdsauthcheckerapi.config
 
 import javax.inject.{Inject, Singleton}
 import play.api.Configuration
-import uk.gov.hmrc.pdsauthcheckerapi.config.UKIMSServicesConfig
-import io.lemonlabs.uri.Url
+import io.lemonlabs.uri.{Url, UrlPath}
 
 @Singleton
 class AppConfig @Inject() (
@@ -27,9 +26,12 @@ class AppConfig @Inject() (
     servicesConfig: UKIMSServicesConfig
 ) {
 
-  val appName: String = config.get[String]("appName")
+  lazy val appName: String = config.get[String]("appName")
 
-  val eisUrl = Url.parse(servicesConfig.baseUrl("eis"))
+  lazy val eisBaseUrl = Url.parse(servicesConfig.baseUrl("eis"))
+
+  lazy val eisUri =
+    UrlPath.parse(config.get[String]("microservice.services.eis.uri"))
 
   lazy val authToken: String =
     config.get[String]("microservice.services.eis.authorisation.token")
