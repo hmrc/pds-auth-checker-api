@@ -91,11 +91,10 @@ class PdsConnectorSpec
              |  "errorMessage": "Authorisation not found",
              |  "sourcePDSFaultDetails": "uri=/pds/cnit/validatecustomsauth/v1"
              |}""".stripMargin
-
         )
 
         val response = pdsConnector
-          .validateCustoms(request)(HeaderCarrier())
+          .validateCustoms(authorisationRequestGen.sample.get)(HeaderCarrier())
           .futureValue
 
         response shouldBe Left(
