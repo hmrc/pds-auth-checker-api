@@ -22,7 +22,6 @@ import org.scalatest.matchers.should.Matchers
 import play.api.Configuration
 import play.api.libs.json.{Json}
 import uk.gov.hmrc.http.HeaderCarrier
-import play.api.libs.json.Json
 import uk.gov.hmrc.http.test.{HttpClientV2Support, WireMockSupport}
 import uk.gov.hmrc.pdsauthcheckerapi.base.TestCommonGenerators
 import uk.gov.hmrc.pdsauthcheckerapi.config.{AppConfig, UKIMSServicesConfig}
@@ -39,8 +38,11 @@ class PdsConnectorSpec
     with IntegrationPatience
     with WireMockSupport {
 
+  private val pdsPath = "validatecustomsauth"
+
   private val configuration = Configuration(
     "appName" -> "pds-auth-checker-api",
+    "microservice.services.eis.uri" -> pdsPath,
     "microservice.services.eis.authorisation.token" -> "Bearer mockBearerToken",
     "microservice.services.eis.host" -> wireMockHost,
     "microservice.services.eis.port" -> wireMockPort
@@ -53,8 +55,6 @@ class PdsConnectorSpec
     mockUKIMSServicesConfig
   )
 
-  private val pdsPath = "/validatecustomsauth"
-
   private val pdsConnector =
     new PdsConnector(httpClientV2, wiremockServerConfig)
 
@@ -62,6 +62,7 @@ class PdsConnectorSpec
     "an authorisation request is made" should {
       "return a successful response with body for a valid response to PDS" in {
         val request = authorisationRequestGen.sample.get
+
         val responseData = authorisationResponseGen(request).sample.get
         givenPdsReturns(
           200,
@@ -105,7 +106,7 @@ class PdsConnectorSpec
   }
   private def givenPdsReturns(status: Int, url: String, body: String): Unit =
     wireMockServer.stubFor(
-      post(urlEqualTo(url))
+      post(urlEqualTo(s"/$url"))
         .willReturn(
           aResponse()
             .withStatus(status)
