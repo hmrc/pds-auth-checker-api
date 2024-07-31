@@ -50,8 +50,7 @@ class PdsConnector @Inject() (
       pdsAuthRequest: PdsAuthRequest
   )(implicit
       hc: HeaderCarrier
-  ): Future[Either[PdsError, PdsAuthResponse]] = {
-    println(pdsEndpoint)
+  ): Future[Either[PdsError, PdsAuthResponse]] =
     client
       .post(url"$pdsEndpoint")
       .withBody(Json.toJson(pdsAuthRequest))
@@ -70,7 +69,6 @@ class PdsConnector @Inject() (
             )
         }
       }
-  }
 
   private def handleResponse(
       response: HttpResponse
