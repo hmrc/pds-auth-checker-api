@@ -23,7 +23,8 @@ import uk.gov.hmrc.pdsauthcheckerapi.models.{
   PdsAuthResponse,
   PdsAuthResponseResult
 }
-import java.time.LocalDate
+
+import java.time.{LocalDate, LocalDateTime}
 import java.time.temporal.ChronoUnit
 
 trait TestCommonGenerators {
@@ -41,8 +42,9 @@ trait TestCommonGenerators {
   lazy val authorisationRequestGen: Gen[PdsAuthRequest] = for {
     eoris <- eorisGen
     now = LocalDate.now()
-    date <- Gen.option(
-      Gen.choose(now.minus(1, ChronoUnit.YEARS), now.plus(3, ChronoUnit.MONTHS))
+    date <- Gen.choose(
+      now.minus(1, ChronoUnit.YEARS),
+      now.plus(3, ChronoUnit.MONTHS)
     )
     authType = "UKIM"
   } yield PdsAuthRequest(date, authType, eoris)
@@ -52,7 +54,7 @@ trait TestCommonGenerators {
     val code = if (isValid) 0 else Gen.oneOf(1, 2).sample.get
     PdsAuthResponseResult(eori, isValid, code)
   }
-  
+
   def authorisationResponseResultsGen(
       eoris: Seq[Eori]
   ): Gen[Seq[PdsAuthResponseResult]] = {
@@ -65,7 +67,7 @@ trait TestCommonGenerators {
       authRequest: PdsAuthRequest
   ): Gen[PdsAuthResponse] =
     PdsAuthResponse(
-      authRequest.validityDate.getOrElse(LocalDate.now()),
+      LocalDateTime.now(),
       authRequest.authType,
       authorisationResponseResultsGen(authRequest.eoris).sample.get
     )

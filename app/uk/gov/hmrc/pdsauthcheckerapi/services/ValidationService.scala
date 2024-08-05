@@ -20,7 +20,11 @@ import cats.data.{NonEmptyList, ValidatedNel}
 import cats.syntax.apply._
 import cats.syntax.traverse._
 import cats.syntax.validated._
-import uk.gov.hmrc.pdsauthcheckerapi.models.errors.{DateValidationError, EoriValidationError, ValidationError}
+import uk.gov.hmrc.pdsauthcheckerapi.models.errors.{
+  DateValidationError,
+  EoriValidationError,
+  ValidationError
+}
 import uk.gov.hmrc.pdsauthcheckerapi.models.{
   Eori,
   PdsAuthRequest,
@@ -43,12 +47,12 @@ class ValidationService {
     val validatedEoris: ValidatedNel[EoriValidationError, Seq[Eori]] = {
       unvalidatedPdsRequest.eoris.traverse(validateEori)
     }
-    val validatedDate: ValidatedNel[DateValidationError, Option[LocalDate]] =
-      unvalidatedPdsRequest.validityDate.traverse(validateDate)
+    val validatedDate: ValidatedNel[DateValidationError, LocalDate] =
+      validateDate(unvalidatedPdsRequest.validityDate)
 
     val merged: ValidatedNel[
       ValidationError,
-      (Option[LocalDate], Seq[Eori])
+      (LocalDate, Seq[Eori])
     ] =
       (
         validatedDate,

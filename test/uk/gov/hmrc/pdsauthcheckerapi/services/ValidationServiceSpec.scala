@@ -40,7 +40,7 @@ class ValidationServiceSpec
       authRequest: PdsAuthRequest
   ): UnvalidatedPdsAuthRequest = {
     UnvalidatedPdsAuthRequest(
-      authRequest.validityDate.map(_.toString),
+      authRequest.validityDate.toString,
       authRequest.authType,
       authRequest.eoris.map(_.value)
     )
