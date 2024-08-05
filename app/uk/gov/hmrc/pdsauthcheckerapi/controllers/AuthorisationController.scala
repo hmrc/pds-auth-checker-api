@@ -59,7 +59,7 @@ class AuthorisationController @Inject() (
                   )
                 )
               ),
-            validatedPdsRequest =>
+            validatedPdsRequest => {
               pdsService
                 .getValidatedCustoms(
                   validatedPdsRequest
@@ -76,6 +76,7 @@ class AuthorisationController @Inject() (
                       case _ => internalServerErrorResponse
                     }
                 }
+            }
           )
     }
 

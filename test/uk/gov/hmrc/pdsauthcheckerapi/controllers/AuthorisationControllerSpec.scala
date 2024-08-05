@@ -33,8 +33,17 @@ import play.api.libs.json.{JsObject, Json}
 import play.api.mvc.{BodyParsers, Result}
 import uk.gov.hmrc.http.HeaderCarrier
 import uk.gov.hmrc.pdsauthcheckerapi.base.TestCommonGenerators
-import uk.gov.hmrc.pdsauthcheckerapi.models.{Eori, PdsAuthRequest, PdsAuthResponse, UnvalidatedPdsAuthRequest}
-import uk.gov.hmrc.pdsauthcheckerapi.services.{ErrorConverterService, PdsService, ValidationService}
+import uk.gov.hmrc.pdsauthcheckerapi.models.{
+  Eori,
+  PdsAuthRequest,
+  PdsAuthResponse,
+  UnvalidatedPdsAuthRequest
+}
+import uk.gov.hmrc.pdsauthcheckerapi.services.{
+  ErrorConverterService,
+  PdsService,
+  ValidationService
+}
 import cats.syntax.validated._
 import uk.gov.hmrc.pdsauthcheckerapi.actions.AuthTypeAction
 import uk.gov.hmrc.pdsauthcheckerapi.models.errors.{
@@ -52,7 +61,10 @@ class AuthorisationControllerSpec
     with ScalaFutures {
 
   val config: Configuration = Configuration("auth.supportedTypes" -> "UKIM")
-  val authTypeAction = new AuthTypeAction(new BodyParsers.Default(Helpers.stubControllerComponents().parsers), config)
+  val authTypeAction = new AuthTypeAction(
+    new BodyParsers.Default(Helpers.stubControllerComponents().parsers),
+    config
+  )
 
   val mockPdsService: PdsService = mock[PdsService]
   val mockValidationService: ValidationService = mock[ValidationService]
@@ -76,7 +88,7 @@ class AuthorisationControllerSpec
       authRequest: PdsAuthRequest
   ): UnvalidatedPdsAuthRequest = {
     UnvalidatedPdsAuthRequest(
-      authRequest.validityDate.map(_.toString),
+      authRequest.validityDate.toString,
       authRequest.authType,
       authRequest.eoris.map(_.value)
     )

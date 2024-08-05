@@ -16,21 +16,20 @@
 
 package uk.gov.hmrc.pdsauthcheckerapi.actions
 import play.api.Configuration
-import play.api.libs.Comet.json
 import play.api.mvc._
-import play.api.libs.json.{JsValue, Json}
+import play.api.libs.json.Json
 import play.api.mvc.Results.BadRequest
-import uk.gov.hmrc.pdsauthcheckerapi.models.{PdsAuthRequest, UnvalidatedPdsAuthRequest}
-import uk.gov.hmrc.pdsauthcheckerapi.services.{ErrorConverterService, PdsService, ValidationService}
+import uk.gov.hmrc.pdsauthcheckerapi.models.UnvalidatedPdsAuthRequest
 
-import javax.inject.{Inject, Named, Singleton}
+import javax.inject.{Inject, Singleton}
 import scala.concurrent.{ExecutionContext, Future}
 
 @Singleton
-class AuthTypeAction @Inject()(
-                                val parser: BodyParsers.Default,
-                                config: Configuration
-                              )(implicit val executionContext:  ExecutionContext) extends ActionBuilder[Request, AnyContent] {
+class AuthTypeAction @Inject() (
+    val parser: BodyParsers.Default,
+    config: Configuration
+)(implicit val executionContext: ExecutionContext)
+    extends ActionBuilder[Request, AnyContent] {
 
   private val InvalidAuthTypeResponse = BadRequest(
     Json.obj(
@@ -42,9 +41,13 @@ class AuthTypeAction @Inject()(
   private val supportedAuthTypes: Set[String] =
     config.get[String]("auth.supportedTypes").split(",").map(_.trim).toSet
 
-  override def invokeBlock[A](request: Request[A], block: Request[A] => Future[Result]): Future[Result] = {
+  override def invokeBlock[A](
+      request: Request[A],
+      block: Request[A] => Future[Result]
+  ): Future[Result] = {
     request.body match {
-      case unvalidatedRequest:UnvalidatedPdsAuthRequest if supportedAuthTypes.contains(unvalidatedRequest.authType) =>
+      case unvalidatedRequest: UnvalidatedPdsAuthRequest
+          if supportedAuthTypes.contains(unvalidatedRequest.authType) =>
         block(request)
       case _ =>
         Future.successful(InvalidAuthTypeResponse)
