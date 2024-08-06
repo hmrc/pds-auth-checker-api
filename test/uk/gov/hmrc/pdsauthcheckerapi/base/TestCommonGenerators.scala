@@ -24,7 +24,7 @@ import uk.gov.hmrc.pdsauthcheckerapi.models.{
   PdsAuthResponseResult
 }
 
-import java.time.{LocalDate, LocalDateTime}
+import java.time.{LocalDate, ZoneOffset, ZonedDateTime}
 import java.time.temporal.ChronoUnit
 
 trait TestCommonGenerators {
@@ -67,7 +67,7 @@ trait TestCommonGenerators {
       authRequest: PdsAuthRequest
   ): Gen[PdsAuthResponse] =
     PdsAuthResponse(
-      LocalDateTime.now(),
+      ZonedDateTime.now(ZoneOffset.UTC),
       authRequest.authType,
       authorisationResponseResultsGen(authRequest.eoris).sample.get
     )

@@ -16,16 +16,16 @@
 
 package uk.gov.hmrc.pdsauthcheckerapi.models
 
-import play.api.libs.json.{Json, OFormat}
+import play.api.libs.json.Writes
+import play.api.libs.json.Writes.temporalWrites
 
 import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
 
-case class PdsAuthResponse(
-    processingDate: ZonedDateTime,
-    authType: String,
-    results: Seq[PdsAuthResponseResult]
-)
-
-object PdsAuthResponse {
-  implicit val format: OFormat[PdsAuthResponse] = Json.format[PdsAuthResponse]
+object Iso8601DateTime {
+  private val iso8601DateTimeFormat: String = "yyyy-MM-dd'T'HH:mm:ss.SS'Z'"
+  private val iso8601DateTimeFormatter: DateTimeFormatter =
+    DateTimeFormatter.ofPattern(iso8601DateTimeFormat)
+  implicit val iso8601DateTimeWrites: Writes[ZonedDateTime] =
+    temporalWrites[ZonedDateTime, DateTimeFormatter](iso8601DateTimeFormatter)
 }

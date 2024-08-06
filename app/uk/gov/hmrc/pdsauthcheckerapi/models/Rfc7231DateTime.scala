@@ -16,16 +16,14 @@
 
 package uk.gov.hmrc.pdsauthcheckerapi.models
 
-import play.api.libs.json.{Json, OFormat}
+import java.time.{ZoneOffset, ZonedDateTime}
+import java.time.format.DateTimeFormatter
 
-import java.time.ZonedDateTime
+object Rfc7231DateTime {
 
-case class PdsAuthResponse(
-    processingDate: ZonedDateTime,
-    authType: String,
-    results: Seq[PdsAuthResponseResult]
-)
+  private val rfc7231DateTimeFormat: DateTimeFormatter =
+    DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss O")
 
-object PdsAuthResponse {
-  implicit val format: OFormat[PdsAuthResponse] = Json.format[PdsAuthResponse]
+  def now: String =
+    rfc7231DateTimeFormat.format(ZonedDateTime.now(ZoneOffset.UTC))
 }

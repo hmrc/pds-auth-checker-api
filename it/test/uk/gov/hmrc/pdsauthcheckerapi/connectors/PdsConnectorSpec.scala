@@ -16,17 +16,20 @@
 
 package uk.gov.hmrc.pdsauthcheckerapi.connectors
 import com.github.tomakehurst.wiremock.client.WireMock._
+import com.typesafe.config.Config
+import org.apache.pekko.actor.ActorSystem
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
 import org.scalatest.matchers.should.Matchers
 import play.api.Configuration
-import play.api.libs.json.{Json}
+import play.api.libs.json.Json
 import uk.gov.hmrc.http.HeaderCarrier
 import uk.gov.hmrc.http.test.{HttpClientV2Support, WireMockSupport}
 import uk.gov.hmrc.pdsauthcheckerapi.base.TestCommonGenerators
 import uk.gov.hmrc.pdsauthcheckerapi.config.{AppConfig, UKIMSServicesConfig}
 import uk.gov.hmrc.pdsauthcheckerapi.models.errors.InvalidAuthTokenPdsError
 import uk.gov.hmrc.pdsauthcheckerapi.models.PdsAuthResponse
+
 import scala.concurrent.ExecutionContext.Implicits.global
 
 class PdsConnectorSpec
@@ -50,13 +53,18 @@ class PdsConnectorSpec
 
   private val mockUKIMSServicesConfig = new UKIMSServicesConfig(configuration)
 
-  private val wiremockServerConfig = new AppConfig(
+  private val wiremockServerConfig = AppConfig(
     configuration,
     mockUKIMSServicesConfig
   )
 
   private val pdsConnector =
-    new PdsConnector(httpClientV2, wiremockServerConfig)
+    new PdsConnector(
+      httpClientV2,
+      wiremockServerConfig,
+      configuration = wiremockServerConfig.config.underlying,
+      actorSystem = ActorSystem()
+    )
 
   "PdsConnector" when {
     "an authorisation request is made" should {

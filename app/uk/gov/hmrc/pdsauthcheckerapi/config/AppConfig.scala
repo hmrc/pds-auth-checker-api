@@ -21,7 +21,7 @@ import play.api.Configuration
 import io.lemonlabs.uri.{Url, UrlPath}
 
 @Singleton
-class AppConfig @Inject() (
+case class AppConfig @Inject() (
     config: Configuration,
     servicesConfig: UKIMSServicesConfig
 ) {
