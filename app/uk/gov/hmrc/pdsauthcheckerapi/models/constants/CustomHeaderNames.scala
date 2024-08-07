@@ -14,18 +14,8 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.pdsauthcheckerapi.models
+package uk.gov.hmrc.pdsauthcheckerapi.models.constants
 
-import play.api.libs.json.{Json, OFormat}
-
-import java.time.ZonedDateTime
-
-case class PdsAuthResponse(
-    processingDate: ZonedDateTime,
-    authType: String,
-    results: Seq[PdsAuthResponseResult]
-)
-
-object PdsAuthResponse {
-  implicit val format: OFormat[PdsAuthResponse] = Json.format[PdsAuthResponse]
+object CustomHeaderNames {
+  val xCorrelationId = "X-Correlation-Id"
 }

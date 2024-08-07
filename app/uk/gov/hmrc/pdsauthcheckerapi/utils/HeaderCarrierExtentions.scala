@@ -14,18 +14,20 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.pdsauthcheckerapi.models
+package uk.gov.hmrc.pdsauthcheckerapi.utils
 
-import play.api.libs.json.{Json, OFormat}
+import uk.gov.hmrc.http.HeaderCarrier
+import uk.gov.hmrc.pdsauthcheckerapi.models.constants.CustomHeaderNames
 
-import java.time.ZonedDateTime
+import java.util.UUID
 
-case class PdsAuthResponse(
-    processingDate: ZonedDateTime,
-    authType: String,
-    results: Seq[PdsAuthResponseResult]
-)
+trait HeaderCarrierExtensions {
 
-object PdsAuthResponse {
-  implicit val format: OFormat[PdsAuthResponse] = Json.format[PdsAuthResponse]
+  def generateCorrelationId()(implicit hc: HeaderCarrier): String =
+    hc.headers(scala.Seq(CustomHeaderNames.xCorrelationId)) match {
+      case Seq((_, id)) =>
+        id
+      case _ =>
+        UUID.randomUUID().toString
+    }
 }

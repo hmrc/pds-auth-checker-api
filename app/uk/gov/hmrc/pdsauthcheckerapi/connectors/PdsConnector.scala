@@ -16,45 +16,63 @@
 
 package uk.gov.hmrc.pdsauthcheckerapi.connectors
 
+import com.typesafe.config.Config
+import org.apache.pekko.actor.ActorSystem
 import play.api.Logging
+import play.api.http.{HeaderNames, MimeTypes}
 import play.api.http.Status.{FORBIDDEN, OK}
 
 import javax.inject.{Inject, Singleton}
-import uk.gov.hmrc.http.{HeaderCarrier, HttpResponse, StringContextOps}
+import uk.gov.hmrc.http.{HeaderCarrier, HttpResponse, Retries, StringContextOps}
 import uk.gov.hmrc.http.HttpReads.Implicits._
 
 import scala.concurrent.{ExecutionContext, Future}
 import play.api.libs.json._
 import uk.gov.hmrc.http.client.HttpClientV2
 import uk.gov.hmrc.pdsauthcheckerapi.config.AppConfig
+import uk.gov.hmrc.pdsauthcheckerapi.models.constants.{
+  CustomHeaderNames,
+  HeaderValues
+}
 import uk.gov.hmrc.pdsauthcheckerapi.models.errors.{
   InvalidAuthTokenPdsError,
   ParseResponseFailure,
   PdsError,
   PdsErrorDetail
 }
-import uk.gov.hmrc.pdsauthcheckerapi.models.{PdsAuthRequest, PdsAuthResponse}
+import uk.gov.hmrc.pdsauthcheckerapi.models.{
+  PdsAuthRequest,
+  PdsAuthResponse,
+  Rfc7231DateTime
+}
+import uk.gov.hmrc.pdsauthcheckerapi.utils.HeaderCarrierExtensions
 
 @Singleton
 class PdsConnector @Inject() (
     client: HttpClientV2,
-    appConfig: AppConfig
+    appConfig: AppConfig,
+    override val configuration: Config,
+    override val actorSystem: ActorSystem
 )(implicit
     ec: ExecutionContext
-) extends Logging {
+) extends Logging
+    with Retries
+    with HeaderCarrierExtensions {
+
   private val pdsEndpoint =
     appConfig.eisBaseUrl.withPath(appConfig.eisUri)
+
   private val authToken = appConfig.authToken
 
   def validateCustoms(
       pdsAuthRequest: PdsAuthRequest
   )(implicit
       hc: HeaderCarrier
-  ): Future[Either[PdsError, PdsAuthResponse]] =
+  ): Future[Either[PdsError, PdsAuthResponse]] = {
     client
       .post(url"$pdsEndpoint")
+      .setHeader(integrationFrameworkHeaders: _*)
       .withBody(Json.toJson(pdsAuthRequest))
-      .setHeader("Authorization" -> authToken)
       .execute[HttpResponse]
       .flatMap { response =>
         response.status match {
@@ -69,6 +87,18 @@ class PdsConnector @Inject() (
             )
         }
       }
+  }
+
+  private def integrationFrameworkHeaders(implicit
+      hc: HeaderCarrier
+  ): Seq[(String, String)] =
+    Seq(
+      (CustomHeaderNames.xCorrelationId, generateCorrelationId()),
+      (HeaderNames.DATE, Rfc7231DateTime.now),
+      (HeaderNames.CONTENT_TYPE, HeaderValues.JsonCharsetUtf8),
+      (HeaderNames.ACCEPT, MimeTypes.JSON),
+      (HeaderNames.AUTHORIZATION, s"Bearer $authToken")
+    )
 
   private def handleResponse(
       response: HttpResponse
