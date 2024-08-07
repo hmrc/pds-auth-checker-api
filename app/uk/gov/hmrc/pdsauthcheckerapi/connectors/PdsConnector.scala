@@ -135,7 +135,9 @@ class PdsConnector @Inject() (
       response: HttpResponse
   ): Future[Either[PdsError, PdsAuthResponse]] = {
     logger.error(
-      s"PDS rjected"
+      s"""|PDS rejected our request with
+      "|Status: ${response.status}
+      "|Body: ${response.body}""".stripMargin
     )
     response.json.validate[PdsErrorDetail] match {
       case JsSuccess(_, _) =>
