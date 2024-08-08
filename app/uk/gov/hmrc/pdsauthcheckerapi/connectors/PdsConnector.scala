@@ -69,15 +69,44 @@ class PdsConnector @Inject() (
   )(implicit
       hc: HeaderCarrier
   ): Future[Either[PdsError, PdsAuthResponse]] = {
+
+    val correlationId = generateCorrelationId()
+    val date = Rfc7231DateTime.now
+
+    val logMessage =
+      s"""|pds-auth-checker-api
+          |
+          |Posting to PDS via EIS
+          |
+          |Submission Headers
+          |
+          |${CustomHeaderNames.xCorrelationId}: $correlationId
+          |${HeaderNames.DATE}: $date
+          |${HeaderNames.CONTENT_TYPE}: ${HeaderValues.JsonCharsetUtf8}
+          |${HeaderNames.ACCEPT}: ${MimeTypes.JSON}
+          |""".stripMargin
+
+    val newHeaders = Seq(
+      (CustomHeaderNames.xCorrelationId, correlationId),
+      (HeaderNames.DATE, date),
+      (HeaderNames.CONTENT_TYPE, HeaderValues.JsonCharsetUtf8),
+      (HeaderNames.ACCEPT, MimeTypes.JSON),
+      (HeaderNames.AUTHORIZATION, s"Bearer $authToken")
+    )
+
     client
       .post(url"$pdsEndpoint")
-      .setHeader(integrationFrameworkHeaders: _*)
+      .setHeader(newHeaders: _*)
       .withBody(Json.toJson(pdsAuthRequest))
+      .transform(r => {
+        logger.info(logMessage)
+        r
+      })
       .execute[HttpResponse]
       .flatMap { response =>
         response.status match {
           case OK        => handleResponse(response)
-          case FORBIDDEN => handleForbidden(response)
+          case FORBIDDEN => handleRejected(response)
           case _ =>
             logger.warn(
               s"Did not receive OK from PDS - instead got ${response.status} and ${response.body}"
@@ -88,17 +117,6 @@ class PdsConnector @Inject() (
         }
       }
   }
-
-  private def integrationFrameworkHeaders(implicit
-      hc: HeaderCarrier
-  ): Seq[(String, String)] =
-    Seq(
-      (CustomHeaderNames.xCorrelationId, generateCorrelationId()),
-      (HeaderNames.DATE, Rfc7231DateTime.now),
-      (HeaderNames.CONTENT_TYPE, HeaderValues.JsonCharsetUtf8),
-      (HeaderNames.ACCEPT, MimeTypes.JSON),
-      (HeaderNames.AUTHORIZATION, s"Bearer $authToken")
-    )
 
   private def handleResponse(
       response: HttpResponse
@@ -113,11 +131,13 @@ class PdsConnector @Inject() (
     }
   }
 
-  private def handleForbidden(
+  private def handleRejected(
       response: HttpResponse
   ): Future[Either[PdsError, PdsAuthResponse]] = {
     logger.error(
-      s"PDS has rejected bearer token with the following: ${response.status} and ${response.body}"
+      s"""|PDS rejected our request with
+      "|Status: ${response.status}
+      "|Body: ${response.body}""".stripMargin
     )
     response.json.validate[PdsErrorDetail] match {
       case JsSuccess(_, _) =>
