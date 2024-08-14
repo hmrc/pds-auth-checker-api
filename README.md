@@ -1,10 +1,25 @@
-# pds-auth-checker-api
 
-This repository contains the necessary code to display user journey for PDS AUTH CHECKER API
+# PDS Auth Checker API (PDS)
 
-### Running the tests
+This repository contains the necessary code for PDS AUTH CHECKER API
+
+### Overview
+
+This API handles validation of request and connects to PDS system to return json validated data around EORI numbers
+
+### Running in DEV mode
+
+To start the repo use `sbt run`
+
+To start the service locally using service manager, use `sm2 --start UKIM_ALL`
+
+### Running unit tests
 
     sbt test
+
+### Running integration tests
+
+    sbt it/test
 
 ### License
 
