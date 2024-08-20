@@ -49,8 +49,11 @@ import uk.gov.hmrc.pdsauthcheckerapi.actions.AuthTypeAction
 import uk.gov.hmrc.pdsauthcheckerapi.models.errors.{
   AuthorisedBadRequestCode,
   EoriValidationError,
+  InvalidAuthTokenPdsError,
+  ParseResponseFailure,
   ValidationErrorResponse
 }
+
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
@@ -166,6 +169,46 @@ class AuthorisationControllerSpec
       val result: Future[Result] = controller.authorise(request)
       status(result) mustBe BAD_REQUEST
       contentAsJson(result) shouldBe createValidationError(validationErrors)
+    }
+
+    "return internal server error when InvalidAuthTokenPdsError returned from pdsService" in {
+      val authRequest = authorisationRequestGen.sample.get
+
+      when(mockPdsService.getValidatedCustoms(any())(any()))
+        .thenReturn(Future.successful(Left(InvalidAuthTokenPdsError())))
+
+      when(
+        mockValidationService.validateRequest(
+          ArgumentMatchers.eq(authRequestToUnvalidatedRequest(authRequest))
+        )
+      ).thenReturn(authRequest.validNel)
+
+      val request =
+        FakeRequest().withBody(authRequestToUnvalidatedRequest(authRequest))
+
+      val result: Future[Result] = controller.authorise(request)
+
+      status(result) mustBe INTERNAL_SERVER_ERROR
+    }
+
+    "return internal server error when ParseResponseFailure returned from pdsService" in {
+      val authRequest = authorisationRequestGen.sample.get
+
+      when(mockPdsService.getValidatedCustoms(any())(any()))
+        .thenReturn(Future.successful(Left(ParseResponseFailure())))
+
+      when(
+        mockValidationService.validateRequest(
+          ArgumentMatchers.eq(authRequestToUnvalidatedRequest(authRequest))
+        )
+      ).thenReturn(authRequest.validNel)
+
+      val request =
+        FakeRequest().withBody(authRequestToUnvalidatedRequest(authRequest))
+
+      val result: Future[Result] = controller.authorise(request)
+
+      status(result) mustBe INTERNAL_SERVER_ERROR
     }
   }
 }

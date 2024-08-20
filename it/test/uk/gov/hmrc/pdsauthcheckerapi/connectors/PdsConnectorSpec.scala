@@ -27,10 +27,16 @@ import uk.gov.hmrc.http.HeaderCarrier
 import uk.gov.hmrc.http.test.{HttpClientV2Support, WireMockSupport}
 import uk.gov.hmrc.pdsauthcheckerapi.base.TestCommonGenerators
 import uk.gov.hmrc.pdsauthcheckerapi.config.{AppConfig, UKIMSServicesConfig}
-import uk.gov.hmrc.pdsauthcheckerapi.models.errors.InvalidAuthTokenPdsError
+import uk.gov.hmrc.pdsauthcheckerapi.models.errors.{
+  InvalidAuthTokenPdsError,
+  ParseResponseFailure
+}
 import uk.gov.hmrc.pdsauthcheckerapi.models.PdsAuthResponse
 
+import scala.concurrent.{Await, Future}
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration.DurationInt
+import scala.util.Failure
 
 class PdsConnectorSpec
     extends AnyWordSpec
@@ -109,6 +115,52 @@ class PdsConnectorSpec
         response shouldBe Left(
           InvalidAuthTokenPdsError()
         )
+      }
+
+      "return a Left[ParsingResponseFailure] when reciving invalid json under 200" in {
+        val request = authorisationRequestGen.sample.get
+
+        givenPdsReturns(
+          200,
+          pdsPath,
+          """{ "invalid": "json" }"""
+        )
+
+        val response = pdsConnector
+          .validateCustoms(request)(HeaderCarrier())
+          .futureValue
+
+        response shouldBe a[Left[ParseResponseFailure, _]]
+      }
+
+      "return a Left[ParsingResponseFailure] when reciving invalid json under 403" in {
+        val request = authorisationRequestGen.sample.get
+
+        givenPdsReturns(
+          403,
+          pdsPath,
+          """{ "invalid": "json" }"""
+        )
+
+        val response = pdsConnector
+          .validateCustoms(request)(HeaderCarrier())
+          .futureValue
+
+        response shouldBe a[Left[ParseResponseFailure, _]]
+      }
+
+      "return an future failure when a non-200/400 returned by downstream API" in {
+        val request = authorisationRequestGen.sample.get
+
+        givenPdsReturns(
+          203,
+          pdsPath,
+          """{ "invalid": "json" }"""
+        )
+
+        val response = pdsConnector.validateCustoms(request)(HeaderCarrier())
+
+        response shouldBe a[Future[Failure[_]]]
       }
     }
   }
